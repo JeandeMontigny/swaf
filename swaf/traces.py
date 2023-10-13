@@ -72,6 +72,7 @@ class Spike_recording:
         ave_waveform = np.average(waveforms, axis=1)
 
         if plot:
+            plt.figure()
             # centred arround stim time
             plt.plot([t/self.sampling_rate for t in range(-int(np.ceil(0.1*float(self.sampling_rate))/2), int(np.ceil(0.1*float(self.sampling_rate))/2))], ave_waveform, c='k')
             plt.xlabel(f"Time ({self.segment.analogsignals[2].times.units.dimensionality.string})")

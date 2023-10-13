@@ -26,13 +26,14 @@ class Spike_recording:
         self.stim_trigger_times = np.array(self.segment.events[0])
         # transpose the analog signal to get an array of shape [2, x], instead of [x, 2]
         self.signal = np.transpose(self.segment.analogsignals[2])[1]
-        # get and plot signal
+        self.click_coords = []
 
     # ---------------- #
     def plot_analogsig(self, t_start, t_stop, plot_stim=True, show_plot=False, plot_save_path=""):
         # catch out of recording errors
         self.check_t(t_start, t_stop)
 
+        plt.figure()
         # get array id corresponding to t_start and t_stop
         id_start = int((t_start-float(self.segment.t_start)) * float(self.sampling_rate))
         id_stop = int((t_stop-float(self.segment.t_start)) * float(self.sampling_rate))
@@ -40,6 +41,7 @@ class Spike_recording:
         plt.plot(self.segment.analogsignals[2].times[id_start:id_stop], self.signal[id_start:id_stop], color='k')
         plt.xlabel(f"Time ({self.segment.analogsignals[2].times.units.dimensionality.string})")
         plt.ylabel(f"{self.segment.analogsignals[2].units.dimensionality.string}")
+        plt.tight_layout()
 
         if plot_stim and len(self.stim_trigger_times) > 0:
             # get stim within t_start and t_stop
@@ -60,7 +62,7 @@ class Spike_recording:
             plt.show()
 
     # ---------------- #
-    def get_ave_waveform(self, t_start, t_stop, show_plot=False, plot_save_path=""):
+    def get_ave_waveform(self, t_start, t_stop, show_plot=False, plot_save_path="", anotate=True):
         # catch out of recording errors
         self.check_t(t_start, t_stop)
 
@@ -75,7 +77,6 @@ class Spike_recording:
             signal_stim_id = (stim_time-float(self.segment.t_start)) * float(self.sampling_rate)
             # get data +-0.05s arround that signal id stim time
             data = self.signal[int(signal_stim_id-(0.05*float(self.sampling_rate))):int(signal_stim_id+(0.05*float(self.sampling_rate)))]
-
             # size of segment can vary (from read_segment()), so add array's last value at the end of array if size < np.ceil(0.1*float(seg_sampling_rate)))-len(data)
             if len(data) < int(np.ceil(0.1*float(self.sampling_rate))):
                 data = np.append(data, [data[len(data)-1] for addval in range(0, int(np.ceil(0.1*float(self.sampling_rate)))-len(data))])
@@ -90,11 +91,11 @@ class Spike_recording:
         return ave_waveform
 
     # ---------------- #
-    def plot_ave_waveform(self, ave_waveform, t_start, t_stop, show_plot, plot_save_path):
+    def plot_ave_waveform(self, ave_waveform, t_start, t_stop, show_plot, plot_save_path, anotate=True):
         # catch out of recording errors
         self.check_t(t_start, t_stop)
 
-        plt.figure()
+        fig = plt.figure()
         # centred arround stim time
         plt.plot([t/self.sampling_rate for t in range(-int(np.ceil(0.1*float(self.sampling_rate))/2), int(np.ceil(0.1*float(self.sampling_rate))/2))], ave_waveform, c='k')
         plt.xlabel(f"Time ({self.segment.analogsignals[2].times.units.dimensionality.string})")
@@ -111,8 +112,20 @@ class Spike_recording:
             plot_save_path = plot_save_path + "waveform-ave_" + str(t_start) + "-" + str(t_stop) + ".png"
             plt.savefig(plot_save_path, dpi=720)
 
-        if show_plot:
+        if show_plot or anotate:
+            if anotate:
+                fig.canvas.mpl_connect('button_press_event', self.onclick)
             plt.show()
+            if anotate:
+                self.process_coords()
+
+    # ---------------- #
+    def process_coords(self):
+        for i in range(0, len(self.click_coords)-1):
+            point_a = self.click_coords[i]
+            point_b = self.click_coords[i+1]
+            slope = round((point_b[1] - point_a[1]) / (point_b[0] - point_a[0]), 3)
+            print("point", np.around(point_a, 4), "to point", np.around(point_b, 4), "slope is", slope)
 
     # ---------------- #
     def check_t(self, t_start, t_stop):
@@ -120,6 +133,15 @@ class Spike_recording:
             raise SystemExit("Error in \'" + inspect.stack()[1].function + "\' function: Specified t_start \'" + str(t_start) + "\' is smaller than the extracted recording stop time \'" + str(float(self.segment.t_start))+ "\'")
         if t_stop > self.segment.t_stop:
             raise SystemExit("Error in \'" + inspect.stack()[1].function + "\' function: Specified t_stop \'" + str(t_stop) + "\' is larger than the extracted recording stop time \'" + str(float(self.segment.t_stop))+ "\'")
+
+    # ---------------- #
+    def onclick(self, event):
+        ix, iy = event.xdata, event.ydata
+        print("clicked on coord:", f'x = {ix}, y = {iy}')
+        self.click_coords.append([ix, iy])
+        plt.plot(ix, iy, marker='o', color='b', markersize=4)
+        plt.text(ix, iy+0.2, "P"+str(len(self.click_coords)), color='b')
+        plt.draw()
 
 # ---------------------------------------------------------------- #
 def read_file(file_path, t_start=0, t_stop="all"):

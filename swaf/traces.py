@@ -2,7 +2,6 @@ import os, sys, inspect, neo
 import numpy as np
 import quantities as pq
 import matplotlib.pyplot as plt
-from scipy import signal
 
 from .utils import *
 
@@ -116,16 +115,30 @@ class Spike_recording:
             if anotate:
                 fig.canvas.mpl_connect('button_press_event', self.onclick)
             plt.show()
-            if anotate:
-                self.process_coords()
 
     # ---------------- #
-    def process_coords(self):
-        for i in range(0, len(self.click_coords)-1):
-            point_a = self.click_coords[i]
-            point_b = self.click_coords[i+1]
+    def onclick(self, event):
+        coord_x, coord_y = round(event.xdata, 5), round(event.ydata, 5)
+        # print("clicked on coord:", f'x = {ix}, y = {iy}')
+        self.click_coords.append([coord_x, coord_y])
+        # draw a blue point at click location and a label
+        plt.plot(coord_x, coord_y, marker='o', color='b', markersize=4)
+        plt.text(coord_x, coord_y+0.2, "P"+str(len(self.click_coords)), color='b')
+
+        # print slope for every 2 points
+        if len(self.click_coords) > 1 and len(self.click_coords) % 2 == 0:
+            # first of the 2 lasts clicked points
+            point_a = self.click_coords[len(self.click_coords)-2]
+            # last point
+            point_b = self.click_coords[len(self.click_coords)-1]
             slope = round((point_b[1] - point_a[1]) / (point_b[0] - point_a[0]), 3)
-            print("point", np.around(point_a, 4), "to point", np.around(point_b, 4), "slope is", slope)
+            print("point", len(self.click_coords)-1, "to point", len(self.click_coords), "slope:", slope, "\n( coord", point_a, "to", point_b, ")")
+            # plot line between the two points and add label for this slope
+            plt.plot([point_a[0], point_b[0]], [point_a[1], point_b[1]], color='b', label="P"+str(len(self.click_coords)-1)+" to P"+str(len(self.click_coords))+" slope: "+str(slope))
+            # show legend for slope lines
+            plt.legend()
+
+        plt.draw()
 
     # ---------------- #
     def check_t(self, t_start, t_stop):
@@ -133,15 +146,6 @@ class Spike_recording:
             raise SystemExit("Error in \'" + inspect.stack()[1].function + "\' function: Specified t_start \'" + str(t_start) + "\' is smaller than the extracted recording stop time \'" + str(float(self.segment.t_start))+ "\'")
         if t_stop > self.segment.t_stop:
             raise SystemExit("Error in \'" + inspect.stack()[1].function + "\' function: Specified t_stop \'" + str(t_stop) + "\' is larger than the extracted recording stop time \'" + str(float(self.segment.t_stop))+ "\'")
-
-    # ---------------- #
-    def onclick(self, event):
-        ix, iy = event.xdata, event.ydata
-        print("clicked on coord:", f'x = {ix}, y = {iy}')
-        self.click_coords.append([ix, iy])
-        plt.plot(ix, iy, marker='o', color='b', markersize=4)
-        plt.text(ix, iy+0.2, "P"+str(len(self.click_coords)), color='b')
-        plt.draw()
 
 # ---------------------------------------------------------------- #
 def read_file(file_path, t_start=0, t_stop="all"):

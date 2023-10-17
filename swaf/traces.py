@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from .utils import *
 
 # ---------------------------------------------------------------- #
-class Spike_recording:
+class Spike_Recording:
 
     def __init__(self, rec_path):
         self.path = rec_path
@@ -61,7 +61,8 @@ class Spike_recording:
             plt.show()
 
     # ---------------- #
-    def get_ave_waveform(self, t_start, t_stop, show_plot=False, plot_save_path="", anotate=True):
+    def get_ave_waveform(self, t_start, t_stop, show_plot=False, plot_save_path="", anotate=False):
+        #TODO: default values for t_start t_stop, averaging all Spike_Recording signal
         # catch out of recording errors
         self.check_t(t_start, t_stop)
 
@@ -84,13 +85,15 @@ class Spike_recording:
         waveforms = np.transpose(waveforms)
         ave_waveform = np.average(waveforms, axis=1)
 
-        if show_plot or len(plot_save_path) > 0:
+        if show_plot or anotate or len(plot_save_path) > 0:
             self.plot_ave_waveform(ave_waveform, t_start, t_stop, show_plot, plot_save_path)
 
-        return ave_waveform
+        waveform_time = (np.asarray([range(int(-len(ave_waveform)/2), int(len(ave_waveform)/2))])/float(self.sampling_rate))[0]
+        Ave_Waveform = Waveform(ave_waveform, waveform_time, t_start, t_stop, self.sampling_rate)
+        return Ave_Waveform
 
     # ---------------- #
-    def plot_ave_waveform(self, ave_waveform, t_start, t_stop, show_plot, plot_save_path, anotate=True):
+    def plot_ave_waveform(self, ave_waveform, t_start, t_stop, show_plot=True, plot_save_path="", anotate=True):
         # catch out of recording errors
         self.check_t(t_start, t_stop)
 
@@ -122,7 +125,7 @@ class Spike_recording:
         # print("clicked on coord:", f'x = {ix}, y = {iy}')
         self.click_coords.append([coord_x, coord_y])
         # draw a blue point at click location and a label
-        plt.plot(coord_x, coord_y, marker='o', color='b', markersize=4)
+        plt.plot(coord_x, coord_y, marker='o', color='b', markersize=3)
         plt.text(coord_x, coord_y+0.2, "P"+str(len(self.click_coords)), color='b')
 
         # print slope for every 2 points
@@ -149,7 +152,138 @@ class Spike_recording:
 
 # ---------------------------------------------------------------- #
 def read_file(file_path, t_start=0, t_stop="all"):
-    Recording = Spike_recording(file_path)
+    Recording = Spike_Recording(file_path)
     Recording.read(file_path, t_start, t_stop)
 
     return Recording
+
+# ---------------------------------------------------------------- #
+class Waveform:
+
+    def __init__(self, waveform, waveform_time, t_start, t_stop, sampling_rate):
+        self.waveform = waveform
+        self.time = waveform_time
+        self.t_start = t_start
+        self.t_stop = t_stop
+        self.sampling_rate = sampling_rate
+
+    # ---------------- #
+    def get_waveform_peaks(self, exclusion_dist=30, show_plot=False):
+        if show_plot:
+            fig = plt.figure()
+            plt.plot(self.waveform, color='k')
+
+        peaks = []
+        i = int(len(self.waveform) / 2) + 30
+        direction = -1
+        # previous_peak_dist = exclusion_dist so we do not miss the first peak
+        previous_peak_dist = exclusion_dist
+        # no more interessing signal after ~800 frames of self.waveform
+        while i < 850:
+            diff = np.average(self.waveform[i+1:i+3]) - np.average(self.waveform[i-2:i])
+
+            if diff < 0 and direction > 0:
+                direction = -1
+                if previous_peak_dist >= exclusion_dist:
+                    peaks.append(i-2)
+                    previous_peak_dist = 0
+                if show_plot:
+                    plt.plot(i-2, self.waveform[i-2], 'o', color='r')
+
+            if diff > 0 and direction < 0:
+                direction = 1
+                if previous_peak_dist >= exclusion_dist:
+                    peaks.append(i-2)
+                    previous_peak_dist = 0
+                if show_plot:
+                    plt.plot(i-2, self.waveform[i-2], 'o', color='b')
+
+            i = i + 5
+            previous_peak_dist = previous_peak_dist + 5
+
+        if show_plot:
+            for i in range(len(peaks)-1):
+                mean_i = int((peaks[i]+ peaks[i+1])/2)
+                plt.plot(mean_i, self.waveform[mean_i], 'o', color='grey')
+            plt.show()
+
+        self.peaks = peaks
+        return peaks
+
+    # ---------------- #
+    def get_waveform_slope_list(self, dist=5):
+        peaks = self.get_waveform_peaks()
+
+        slope_list = []
+        for i in range(len(peaks)-1):
+            peak_a = peaks[i]
+            peak_b = peaks[i+1]
+            mean_i = int((peak_a + peak_b) / 2)
+            slope_list.append((mean_i-dist, mean_i+dist))
+
+        return slope_list
+
+    # ---------------- #
+    def get_waveform_slope(self, point_list=[], print_val=False, show_plot=False, plot_save_path=""):
+        # if no slope point list is specified, call get_waveform_slope_list() to get a list
+        if len(point_list) == 0:
+            point_list = self.get_waveform_slope_list()
+        if show_plot or len(plot_save_path) > 0:
+            fig = plt.figure()
+
+        # store slopes values
+        slope_val_list = []
+        # slope index number
+        si = 0
+        for points in point_list:
+            si += 1
+            s_start = points[0]
+            s_stop = points[1]
+            point_a = [s_start, self.waveform[s_start]]
+            point_b = [s_stop, self.waveform[s_stop]]
+
+            # calculate slope
+            slope = round((point_b[1] - point_a[1]) / ((point_b[0] - point_a[0]) / float(self.sampling_rate)), 2)
+            slope_val_list.append(([point_a[0], point_b[0]], slope))
+            if print_val:
+                print(point_a[0], "to", point_b[0], "slope:", slope)
+
+            if show_plot or len(plot_save_path) > 0:
+                # waveform plot is centred arround stim time
+                t_point_a = (point_a[0] - (len(self.waveform)/2))/float(self.sampling_rate)
+                t_point_b = (point_b[0] - (len(self.waveform)/2))/float(self.sampling_rate)
+                # if first slope plot waveform
+                if si == 1:
+                    plt.plot(self.time, self.waveform, color='k')
+                # plot waveform section between point a and b
+                t_ab = (np.asarray([range(int(s_start-len(self.waveform)/2), int(s_stop-len(self.waveform)/2))])/float(self.sampling_rate))[0]
+                plt.plot(t_ab, self.waveform[s_start:s_stop], color='r')
+                # plot point a and b
+                plt.plot(t_point_a, point_a[1], marker='o', color='b', markersize=3)
+                # plt.text(t_point_a, point_a[1], round(t_point_a, 5), color='b')
+                plt.plot(t_point_b, point_b[1], marker='o', color='b', markersize=3)
+                # plt.text(t_point_b, point_b[1], round(t_point_b, 5), color='b')
+                # plot slope
+                plt.plot([t_point_a, t_point_b], [point_a[1], point_b[1]], color='b', label="segment "+str(si)+" slope: "+str(slope))
+
+                # TODO: txt_x and txt_y: + f * 90° vector of slope
+                txt_x = (t_point_a + t_point_b) / 2
+                txt_y = (self.waveform[s_start] + self.waveform[s_stop]) / 2
+                plt.text(txt_x, txt_y, si, color='b')
+
+                plt.legend(loc='upper left')
+
+        if show_plot:
+            plt.show()
+        if len(plot_save_path) > 0:
+            # NOTE: no path check or auto naming
+            plt.savefig(plot_save_path, dpi=720)
+
+        self.slope_val_list = slope_val_list
+        return slope_val_list
+
+# ---------------------------------------------------------------- #
+def get_ave_waveform_from_rec(file_path, t_start, t_stop):
+    Ave_Waveform = read_file(file_path, t_start, t_stop).get_ave_waveform(t_start, t_stop, anotate=False)
+
+    return Ave_Waveform

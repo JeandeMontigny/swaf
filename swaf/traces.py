@@ -181,22 +181,14 @@ class Waveform:
         # no more interessing signal after ~800 frames of self.waveform
         while i < 850:
             diff = np.average(self.waveform[i+1:i+3]) - np.average(self.waveform[i-2:i])
-
-            if diff < 0 and direction > 0:
-                direction = -1
+            # if signal variation direction is not the same as previously, thus if peak
+            if (diff < 0 and direction > 0) or (diff > 0 and direction < 0):
                 if previous_peak_dist >= exclusion_dist:
+                    if show_plot:
+                        plt.plot(i-2, self.waveform[i-2], 'o', color='r' if direction > 0 else 'b')
                     peaks.append(i-2)
                     previous_peak_dist = 0
-                if show_plot:
-                    plt.plot(i-2, self.waveform[i-2], 'o', color='r')
-
-            if diff > 0 and direction < 0:
-                direction = 1
-                if previous_peak_dist >= exclusion_dist:
-                    peaks.append(i-2)
-                    previous_peak_dist = 0
-                if show_plot:
-                    plt.plot(i-2, self.waveform[i-2], 'o', color='b')
+                    direction = direction * -1
 
             i = i + 5
             previous_peak_dist = previous_peak_dist + 5
@@ -281,6 +273,16 @@ class Waveform:
 
         self.slope_val_list = slope_val_list
         return slope_val_list
+
+    # ---------------- #
+    def plot_waveform(self, show_plot=True, plot_save_path=""):
+        fig = plt.figure()
+        plt.plot(self.time, self.waveform, color='k')
+        if show_plot:
+            plt.show()
+        if len(plot_save_path) > 0:
+            # NOTE: no path check or auto naming
+            plt.savefig(plot_save_path, dpi=720)
 
 # ---------------------------------------------------------------- #
 def get_ave_waveform_from_rec(file_path, t_start, t_stop):

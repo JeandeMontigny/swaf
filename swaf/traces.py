@@ -28,11 +28,11 @@ class Spike_Recording:
         self.click_coords = []
 
     # ---------------- #
-    def plot_analogsig(self, t_start, t_stop, plot_stim=True, show_plot=False, plot_save_path=""):
+    def plot_analogsig(self, t_start, t_stop, plot_stim=True, show_plot=False, plot_save_path="", create_path=""):
         # catch out of recording errors
         self.check_t(t_start, t_stop)
 
-        plt.figure()
+        fig = plt.subplot()
         # get array id corresponding to t_start and t_stop
         id_start = int((t_start-float(self.segment.t_start)) * float(self.sampling_rate))
         id_stop = int((t_stop-float(self.segment.t_start)) * float(self.sampling_rate))
@@ -40,6 +40,8 @@ class Spike_Recording:
         plt.plot(self.segment.analogsignals[2].times[id_start:id_stop], self.signal[id_start:id_stop], color='k')
         plt.xlabel(f"Time ({self.segment.analogsignals[2].times.units.dimensionality.string})")
         plt.ylabel(f"{self.segment.analogsignals[2].units.dimensionality.string}")
+        fig.spines['right'].set_visible(False)
+        fig.spines['top'].set_visible(False)
         plt.tight_layout()
 
         if plot_stim and len(self.stim_trigger_times) > 0:
@@ -48,12 +50,7 @@ class Spike_Recording:
             # plot stimulation times
             plt.vlines(self.stim_trigger_times[stim_idx], -6, -5.5, colors='r')
 
-        if len(plot_save_path) > 0:
-            if not plot_save_path[len(plot_save_path)-1] == "/":
-                plot_save_path = plot_save_path + "/"
-            # check that folder exists. if not, create it
-            if not os.path.isdir(plot_save_path):
-                os.makedirs(plot_save_path)
+        if len(plot_save_path) > 0 and check_save_path(plot_save_path, create_path):
             plot_save_path = plot_save_path + "analog-signal_" + str(t_start) + "-" + str(t_stop) + ".png"
             plt.savefig(plot_save_path, dpi=720)
 
@@ -61,14 +58,15 @@ class Spike_Recording:
             plt.show()
 
     # ---------------- #
-    def get_ave_waveform(self, t_start, t_stop, show_plot=False, plot_save_path="", anotate=False):
+    def get_ave_waveform(self, t_start, t_stop, show_plot=False, anotate=False, plot_save_path="", create_path=""):
         #TODO: default values for t_start t_stop, averaging all Spike_Recording signal
         # catch out of recording errors
         self.check_t(t_start, t_stop)
 
         # get stims idx between t_start and t_stop
         stim_times_idx = np.where((self.stim_trigger_times > t_start) & (self.stim_trigger_times < t_stop))[0]
-        waveforms = np.zeros(shape=(len(stim_times_idx), int(np.ceil(0.1*float(self.sampling_rate)))))
+        waveform_length = int(np.ceil(0.1*float(self.sampling_rate)))
+        waveforms = np.zeros(shape=(len(stim_times_idx), waveform_length))
 
         # for each stim time between t_start and t_stop
         for i in range(len(stim_times_idx)):
@@ -78,39 +76,37 @@ class Spike_Recording:
             # get data +-0.05s arround that signal id stim time
             data = self.signal[int(signal_stim_id-(0.05*float(self.sampling_rate))):int(signal_stim_id+(0.05*float(self.sampling_rate)))]
             # size of segment can vary (from read_segment()), so add array's last value at the end of array if size < np.ceil(0.1*float(seg_sampling_rate)))-len(data)
-            if len(data) < int(np.ceil(0.1*float(self.sampling_rate))):
-                data = np.append(data, [data[len(data)-1] for addval in range(0, int(np.ceil(0.1*float(self.sampling_rate)))-len(data))])
+            if len(data) < waveform_length:
+                data = np.append(data, [data[len(data)-1] for addval in range(0, waveform_length-len(data))])
             waveforms[i] = data
 
         waveforms = np.transpose(waveforms)
         ave_waveform = np.average(waveforms, axis=1)
 
         if show_plot or anotate or len(plot_save_path) > 0:
-            self.plot_ave_waveform(ave_waveform, t_start, t_stop, show_plot, plot_save_path)
+            self.plot_ave_waveform(ave_waveform, t_start, t_stop, show_plot, anotate, plot_save_path, create_path)
 
         waveform_time = (np.asarray([range(int(-len(ave_waveform)/2), int(len(ave_waveform)/2))])/float(self.sampling_rate))[0]
         Ave_Waveform = Waveform(ave_waveform, waveform_time, t_start, t_stop, self.sampling_rate)
         return Ave_Waveform
 
     # ---------------- #
-    def plot_ave_waveform(self, ave_waveform, t_start, t_stop, show_plot=True, plot_save_path="", anotate=True):
+    def plot_ave_waveform(self, ave_waveform, t_start, t_stop, show_plot=True, anotate=True, plot_save_path="", create_path=""):
         # catch out of recording errors
         self.check_t(t_start, t_stop)
 
-        fig = plt.figure()
+        fig, ax = plt.subplots()
         # centred arround stim time
         plt.plot([t/self.sampling_rate for t in range(-int(np.ceil(0.1*float(self.sampling_rate))/2), int(np.ceil(0.1*float(self.sampling_rate))/2))], ave_waveform, c='k')
         plt.xlabel(f"Time ({self.segment.analogsignals[2].times.units.dimensionality.string})")
         plt.ylabel(f"{self.segment.analogsignals[2].units.dimensionality.string}")
-        plt.title("Waveform average: "+str(t_start)+" to "+str(t_stop)+" s")
+        # plt.title("Waveform average: "+str(t_start)+" to "+str(t_stop)+" s")
+        plt.ylim(-5.1, 5.1)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
         plt.tight_layout()
 
-        if len(plot_save_path) > 0:
-            if not plot_save_path[len(plot_save_path)-1] == "/":
-                plot_save_path = plot_save_path + "/"
-            # check that folder exists. if not, create it
-            if not os.path.isdir(plot_save_path):
-                os.makedirs(plot_save_path)
+        if len(plot_save_path) > 0 and check_save_path(plot_save_path, create_path):
             plot_save_path = plot_save_path + "waveform-ave_" + str(t_start) + "-" + str(t_stop) + ".png"
             plt.savefig(plot_save_path, dpi=720)
 
@@ -168,9 +164,9 @@ class Waveform:
         self.sampling_rate = sampling_rate
 
     # ---------------- #
-    def get_waveform_peaks(self, exclusion_dist=30, show_plot=False):
+    def get_waveform_peaks(self, exclusion_dist=30, half_width=2, overlap=2, lag=2, show_plot=False):
         if show_plot:
-            fig = plt.figure()
+            fig = plt.subplot()
             plt.plot(self.waveform, color='k')
 
         peaks = []
@@ -180,23 +176,27 @@ class Waveform:
         previous_peak_dist = exclusion_dist
         # no more interessing signal after ~800 frames of self.waveform
         while i < 850:
-            diff = np.average(self.waveform[i+1:i+3]) - np.average(self.waveform[i-2:i])
+            diff = np.average(self.waveform[i+1:i+1+half_width]) - np.average(self.waveform[i-half_width:i])
             # if signal variation direction is not the same as previously, thus if peak
             if (diff < 0 and direction > 0) or (diff > 0 and direction < 0):
                 if previous_peak_dist >= exclusion_dist:
                     if show_plot:
-                        plt.plot(i-2, self.waveform[i-2], 'o', color='r' if direction > 0 else 'b')
-                    peaks.append(i-2)
+                        plt.plot(i-lag, self.waveform[i-lag], 'o', color='r' if direction > 0 else 'b')
+                    peaks.append(i-lag)
                     previous_peak_dist = 0
                     direction = direction * -1
 
-            i = i + 5
-            previous_peak_dist = previous_peak_dist + 5
+            i = i + (half_width*2)+1 - overlap
+            previous_peak_dist = previous_peak_dist + (half_width*2)+1 - overlap
 
         if show_plot:
             for i in range(len(peaks)-1):
                 mean_i = int((peaks[i]+ peaks[i+1])/2)
                 plt.plot(mean_i, self.waveform[mean_i], 'o', color='grey')
+
+            fig.spines['right'].set_visible(False)
+            fig.spines['top'].set_visible(False)
+            plt.tight_layout()
             plt.show()
 
         self.peaks = peaks
@@ -221,7 +221,7 @@ class Waveform:
         if len(point_list) == 0:
             point_list = self.get_waveform_slope_list()
         if show_plot or len(plot_save_path) > 0:
-            fig = plt.figure()
+            fig = plt.subplot()
 
         # store slopes values
         slope_val_list = []
@@ -264,6 +264,9 @@ class Waveform:
                 plt.text(txt_x, txt_y, si, color='b')
 
                 plt.legend(loc='upper left')
+                fig.spines['right'].set_visible(False)
+                fig.spines['top'].set_visible(False)
+                plt.tight_layout()
 
         if show_plot:
             plt.show()
@@ -282,10 +285,10 @@ class Waveform:
             plt.show()
         if len(plot_save_path) > 0:
             # NOTE: no path check or auto naming
-            plt.savefig(plot_save_path, dpi=720)
+            plt.savefig(plot_save_path+".png", dpi=720)
 
 # ---------------------------------------------------------------- #
-def get_ave_waveform_from_rec(file_path, t_start, t_stop):
-    Ave_Waveform = read_file(file_path, t_start, t_stop).get_ave_waveform(t_start, t_stop, anotate=False)
+def get_ave_waveform_from_rec(file_path, t_start, t_stop, anotate=False):
+    Ave_Waveform = read_file(file_path, t_start, t_stop).get_ave_waveform(t_start, t_stop, anotate=anotate)
 
     return Ave_Waveform

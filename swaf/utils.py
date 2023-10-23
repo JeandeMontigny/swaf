@@ -1,4 +1,4 @@
-import neo
+import neo, os
 
 # ---------------------------------------------------------------- #
 def get_t_start_t_stop(file_name, t_start=0, t_end="all"):
@@ -16,3 +16,27 @@ def get_t_start_t_stop(file_name, t_start=0, t_end="all"):
         t_end = seg_t_stop - (10/float(seg_sampling_rate))*pq.s
 
     return t_start, t_end
+
+# ---------------------------------------------------------------- #
+def check_save_path(save_path, create=""):
+    # if save_path contains file name, extract only directory path
+    if save_path[len(save_path)-4:len(save_path)] == ".png":
+        save_path = os.path.dirname(save_path)
+    # check that folder exists. if not, create it
+    if not os.path.isdir(save_path):
+        if len(create) == 0:
+            create = input("Path \'" + save_path + "\' does not exist. Do you want to create it? y/n: ")
+        if create == "y":
+            os.makedirs(save_path)
+        else:
+            print("The figure has not been saved.")
+            return False
+    return True
+
+# ---------------------------------------------------------------- #
+def get_plot_name(plot_save_path, name=""):
+    if not plot_save_path[len(plot_save_path)-4:len(plot_save_path)] == ".png":
+        if not plot_save_path[len(plot_save_path)-1] == "/":
+            plot_save_path = plot_save_path + "/"
+        return plot_save_path + name
+    return plot_save_path

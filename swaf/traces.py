@@ -13,6 +13,9 @@ class Spike_Recording:
 
     # ---------------- #
     def read(self, file_path, t_start, t_stop):
+        """
+        TODO
+        """
         # get t_start, t_stop values
         t_start, t_stop = get_t_start_t_stop(file_path, t_start, t_stop)
 
@@ -26,9 +29,13 @@ class Spike_Recording:
         # transpose the analog signal to get an array of shape [2, x], instead of [x, 2]
         self.signal = np.transpose(self.segment.analogsignals[2])[1]
         self.click_coords = []
+        self.key_shift = False
 
     # ---------------- #
     def plot_analogsig(self, t_start, t_stop, plot_stim=True, show_plot=False, plot_save_path="", create_path=""):
+        """
+        TODO
+        """
         # catch out of recording errors
         self.check_t(t_start, t_stop)
 
@@ -51,14 +58,16 @@ class Spike_Recording:
             plt.vlines(self.stim_trigger_times[stim_idx], -6, -5.5, colors='r')
 
         if len(plot_save_path) > 0 and check_save_path(plot_save_path, create_path):
-            plot_save_path = plot_save_path + "analog-signal_" + str(t_start) + "-" + str(t_stop) + ".png"
+            plot_save_path = get_plot_name(plot_save_path, "analog-signal_"+str(t_start)+"-"+str(t_stop)+".png")
             plt.savefig(plot_save_path, dpi=720)
-
         if show_plot:
             plt.show()
 
     # ---------------- #
     def get_ave_waveform(self, t_start, t_stop, show_plot=False, anotate=False, plot_save_path="", create_path=""):
+        """
+        TODO
+        """
         #TODO: default values for t_start t_stop, averaging all Spike_Recording signal
         # catch out of recording errors
         self.check_t(t_start, t_stop)
@@ -83,61 +92,15 @@ class Spike_Recording:
         waveforms = np.transpose(waveforms)
         ave_waveform = np.average(waveforms, axis=1)
 
-        if show_plot or anotate or len(plot_save_path) > 0:
-            self.plot_ave_waveform(ave_waveform, t_start, t_stop, show_plot, anotate, plot_save_path, create_path)
-
         waveform_time = (np.asarray([range(int(-len(ave_waveform)/2), int(len(ave_waveform)/2))])/float(self.sampling_rate))[0]
         Ave_Waveform = Waveform(ave_waveform, waveform_time, t_start, t_stop, self.sampling_rate)
+
+        if show_plot or anotate or len(plot_save_path) > 0:
+            if len(plot_save_path) > 0:
+                plot_save_path = get_plot_name(plot_save_path, "waveform-ave_" + str(t_start) + "-" + str(t_stop) + ".png")
+            Ave_Waveform.plot_waveform(show_plot, anotate, plot_save_path, create_path)
+
         return Ave_Waveform
-
-    # ---------------- #
-    def plot_ave_waveform(self, ave_waveform, t_start, t_stop, show_plot=True, anotate=True, plot_save_path="", create_path=""):
-        # catch out of recording errors
-        self.check_t(t_start, t_stop)
-
-        fig, ax = plt.subplots()
-        # centred arround stim time
-        plt.plot([t/self.sampling_rate for t in range(-int(np.ceil(0.1*float(self.sampling_rate))/2), int(np.ceil(0.1*float(self.sampling_rate))/2))], ave_waveform, c='k')
-        plt.xlabel(f"Time ({self.segment.analogsignals[2].times.units.dimensionality.string})")
-        plt.ylabel(f"{self.segment.analogsignals[2].units.dimensionality.string}")
-        # plt.title("Waveform average: "+str(t_start)+" to "+str(t_stop)+" s")
-        plt.ylim(-5.1, 5.1)
-        ax.spines['right'].set_visible(False)
-        ax.spines['top'].set_visible(False)
-        plt.tight_layout()
-
-        if len(plot_save_path) > 0 and check_save_path(plot_save_path, create_path):
-            plot_save_path = plot_save_path + "waveform-ave_" + str(t_start) + "-" + str(t_stop) + ".png"
-            plt.savefig(plot_save_path, dpi=720)
-
-        if show_plot or anotate:
-            if anotate:
-                fig.canvas.mpl_connect('button_press_event', self.onclick)
-            plt.show()
-
-    # ---------------- #
-    def onclick(self, event):
-        coord_x, coord_y = round(event.xdata, 5), round(event.ydata, 5)
-        # print("clicked on coord:", f'x = {ix}, y = {iy}')
-        self.click_coords.append([coord_x, coord_y])
-        # draw a blue point at click location and a label
-        plt.plot(coord_x, coord_y, marker='o', color='b', markersize=3)
-        plt.text(coord_x, coord_y+0.2, "P"+str(len(self.click_coords)), color='b')
-
-        # print slope for every 2 points
-        if len(self.click_coords) > 1 and len(self.click_coords) % 2 == 0:
-            # first of the 2 lasts clicked points
-            point_a = self.click_coords[len(self.click_coords)-2]
-            # last point
-            point_b = self.click_coords[len(self.click_coords)-1]
-            slope = round((point_b[1] - point_a[1]) / (point_b[0] - point_a[0]), 3)
-            print("point", len(self.click_coords)-1, "to point", len(self.click_coords), "slope:", slope, "\n( coord", point_a, "to", point_b, ")")
-            # plot line between the two points and add label for this slope
-            plt.plot([point_a[0], point_b[0]], [point_a[1], point_b[1]], color='b', label="P"+str(len(self.click_coords)-1)+" to P"+str(len(self.click_coords))+" slope: "+str(slope))
-            # show legend for slope lines
-            plt.legend()
-
-        plt.draw()
 
     # ---------------- #
     def check_t(self, t_start, t_stop):
@@ -148,6 +111,9 @@ class Spike_Recording:
 
 # ---------------------------------------------------------------- #
 def read_file(file_path, t_start=0, t_stop="all"):
+    """
+    TODO
+    """
     Recording = Spike_Recording(file_path)
     Recording.read(file_path, t_start, t_stop)
 
@@ -162,10 +128,15 @@ class Waveform:
         self.t_start = t_start
         self.t_stop = t_stop
         self.sampling_rate = sampling_rate
+        self.click_coords = []
+        self.key_shift = False
 
     # ---------------- #
-    def get_waveform_peaks(self, exclusion_dist=30, half_width=2, overlap=2, lag=2, show_plot=False):
-        if show_plot:
+    def get_waveform_peaks(self, exclusion_dist=30, half_width=2, overlap=2, lag=2, show_plot=False, plot_save_path="", create_path=""):
+        """
+        TODO
+        """
+        if show_plot or len(plot_save_path) > 0:
             fig = plt.subplot()
             plt.plot(self.waveform, color='k')
 
@@ -180,7 +151,7 @@ class Waveform:
             # if signal variation direction is not the same as previously, thus if peak
             if (diff < 0 and direction > 0) or (diff > 0 and direction < 0):
                 if previous_peak_dist >= exclusion_dist:
-                    if show_plot:
+                    if show_plot or len(plot_save_path) > 0:
                         plt.plot(i-lag, self.waveform[i-lag], 'o', color='r' if direction > 0 else 'b')
                     peaks.append(i-lag)
                     previous_peak_dist = 0
@@ -189,21 +160,31 @@ class Waveform:
             i = i + (half_width*2)+1 - overlap
             previous_peak_dist = previous_peak_dist + (half_width*2)+1 - overlap
 
-        if show_plot:
+        if show_plot or len(plot_save_path) > 0:
             for i in range(len(peaks)-1):
                 mean_i = int((peaks[i]+ peaks[i+1])/2)
                 plt.plot(mean_i, self.waveform[mean_i], 'o', color='grey')
 
+            plt.xlabel("Frames")
+            plt.ylabel("V")
             fig.spines['right'].set_visible(False)
             fig.spines['top'].set_visible(False)
             plt.tight_layout()
-            plt.show()
+
+            if len(plot_save_path) > 0 and check_save_path(plot_save_path, create_path):
+                plot_save_path = get_plot_name(plot_save_path, "waveform_peaks.png")
+                plt.savefig(plot_save_path, dpi=720)
+            if show_plot:
+                plt.show()
 
         self.peaks = peaks
         return peaks
 
     # ---------------- #
     def get_waveform_slope_list(self, dist=5):
+        """
+        TODO
+        """
         peaks = self.get_waveform_peaks()
 
         slope_list = []
@@ -216,11 +197,15 @@ class Waveform:
         return slope_list
 
     # ---------------- #
-    def get_waveform_slope(self, point_list=[], print_val=False, show_plot=False, plot_save_path=""):
+    def get_waveform_slope(self, point_list=[], print_val=False, show_plot=False, plot_save_path="", create_path=""):
+        """
+        TODO
+        """
         # if no slope point list is specified, call get_waveform_slope_list() to get a list
         if len(point_list) == 0:
             point_list = self.get_waveform_slope_list()
         if show_plot or len(plot_save_path) > 0:
+            plt.figure()
             fig = plt.subplot()
 
         # store slopes values
@@ -264,31 +249,89 @@ class Waveform:
                 plt.text(txt_x, txt_y, si, color='b')
 
                 plt.legend(loc='upper left')
+                plt.xlabel("Time (s)")
+                plt.ylabel("V")
                 fig.spines['right'].set_visible(False)
                 fig.spines['top'].set_visible(False)
                 plt.tight_layout()
 
+        if len(plot_save_path) > 0 and check_save_path(plot_save_path, create_path):
+            plot_save_path = get_plot_name(plot_save_path, "waveform_slope.png")
+            plt.savefig(plot_save_path, dpi=720)
         if show_plot:
             plt.show()
-        if len(plot_save_path) > 0:
-            # NOTE: no path check or auto naming
-            plt.savefig(plot_save_path, dpi=720)
 
         self.slope_val_list = slope_val_list
         return slope_val_list
 
     # ---------------- #
-    def plot_waveform(self, show_plot=True, plot_save_path=""):
-        fig = plt.figure()
+    def plot_waveform(self, show_plot=True, anotate=False, plot_save_path="", create_path=""):
+        # TODO: click and drag misplaced point on anotation?
+        """
+        TODO
+        """
+        fig, ax = plt.subplots()
         plt.plot(self.time, self.waveform, color='k')
-        if show_plot:
+        plt.xlabel("Time (s)")
+        plt.ylabel("V")
+        # plt.title("Waveform average: "+str(t_start)+" to "+str(t_stop)+" s")
+        plt.ylim(-5.1, 5.1)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        plt.tight_layout()
+
+        if anotate:
+            print("Use shit+click to anotate the plot")
+            fig.canvas.mpl_connect('button_press_event', self.on_click)
+            fig.canvas.mpl_connect('key_press_event', self.on_key_press)
+            fig.canvas.mpl_connect('key_release_event', self.on_key_release)
+
+        if len(plot_save_path) > 0 and check_save_path(plot_save_path, create_path):
+            plot_save_path = get_plot_name(plot_save_path, "waveform.png")
+            plt.savefig(plot_save_path, dpi=720)
+        if show_plot or anotate:
             plt.show()
-        if len(plot_save_path) > 0:
-            # NOTE: no path check or auto naming
-            plt.savefig(plot_save_path+".png", dpi=720)
+
+    # ---------------- #
+    def on_key_press(self, event):
+       if event.key == 'shift':
+           self.key_shift = True
+
+    def on_key_release(self, event):
+       if event.key == 'shift':
+           self.key_shift = False
+
+    # ---------------- #
+    def on_click(self, event):
+        if not self.key_shift:
+            return
+        coord_x, coord_y = round(event.xdata, 5), round(event.ydata, 5)
+        # print("clicked on coord:", f'x = {ix}, y = {iy}')
+        self.click_coords.append([coord_x, coord_y])
+        # draw a blue point at click location and a label
+        plt.plot(coord_x, coord_y, marker='o', color='b', markersize=3)
+        plt.text(coord_x, coord_y+0.2, "P"+str(len(self.click_coords)), color='b')
+
+        # print slope for every 2 points
+        if len(self.click_coords) > 1 and len(self.click_coords) % 2 == 0:
+            # first of the 2 lasts clicked points
+            point_a = self.click_coords[len(self.click_coords)-2]
+            # last point
+            point_b = self.click_coords[len(self.click_coords)-1]
+            slope = round((point_b[1] - point_a[1]) / (point_b[0] - point_a[0]), 3)
+            print("point", len(self.click_coords)-1, "to point", len(self.click_coords), "slope:", slope, "\n( coord", point_a, "to", point_b, ")")
+            # plot line between the two points and add label for this slope
+            plt.plot([point_a[0], point_b[0]], [point_a[1], point_b[1]], color='b', label="P"+str(len(self.click_coords)-1)+" to P"+str(len(self.click_coords))+" slope: "+str(slope))
+            # show legend for slope lines
+            plt.legend()
+
+        plt.draw()
 
 # ---------------------------------------------------------------- #
 def get_ave_waveform_from_rec(file_path, t_start, t_stop, anotate=False):
+    """
+    TODO
+    """
     Ave_Waveform = read_file(file_path, t_start, t_stop).get_ave_waveform(t_start, t_stop, anotate=anotate)
 
     return Ave_Waveform

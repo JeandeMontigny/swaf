@@ -60,6 +60,8 @@ class Spike_Recording:
         if len(plot_save_path) > 0 and check_save_path(plot_save_path, create_path):
             plot_save_path = get_plot_name(plot_save_path, "analog-signal_"+str(t_start)+"-"+str(t_stop)+".png")
             plt.savefig(plot_save_path, dpi=720)
+            if not show_plot:
+                plt.close()
         if show_plot:
             plt.show()
 
@@ -167,6 +169,7 @@ class Waveform:
 
             plt.xlabel("Frames")
             plt.ylabel("V")
+            plt.ylim(-5.1, 5.1)
             fig.spines['right'].set_visible(False)
             fig.spines['top'].set_visible(False)
             plt.tight_layout()
@@ -174,6 +177,8 @@ class Waveform:
             if len(plot_save_path) > 0 and check_save_path(plot_save_path, create_path):
                 plot_save_path = get_plot_name(plot_save_path, "waveform_peaks.png")
                 plt.savefig(plot_save_path, dpi=720)
+                if not show_plot:
+                    plt.close()
             if show_plot:
                 plt.show()
 
@@ -181,7 +186,7 @@ class Waveform:
         return peaks
 
     # ---------------- #
-    def get_waveform_slope_list(self, dist=5):
+    def get_waveform_slope_list(self, dist=5, exclusion_dist=30):
         """
         TODO
         """
@@ -197,13 +202,13 @@ class Waveform:
         return slope_list
 
     # ---------------- #
-    def get_waveform_slope(self, point_list=[], print_val=False, show_plot=False, plot_save_path="", create_path=""):
+    def get_waveform_slope(self, point_list=[], print_val=False, exclusion_dist=30, show_plot=False, plot_save_path="", create_path=""):
         """
         TODO
         """
         # if no slope point list is specified, call get_waveform_slope_list() to get a list
         if len(point_list) == 0:
-            point_list = self.get_waveform_slope_list()
+            point_list = self.get_waveform_slope_list(exclusion_dist=exclusion_dist)
         if show_plot or len(plot_save_path) > 0:
             plt.figure()
             fig = plt.subplot()
@@ -251,6 +256,7 @@ class Waveform:
                 plt.legend(loc='upper left')
                 plt.xlabel("Time (s)")
                 plt.ylabel("V")
+                plt.ylim(-5.1, 5.1)
                 fig.spines['right'].set_visible(False)
                 fig.spines['top'].set_visible(False)
                 plt.tight_layout()
@@ -258,6 +264,8 @@ class Waveform:
         if len(plot_save_path) > 0 and check_save_path(plot_save_path, create_path):
             plot_save_path = get_plot_name(plot_save_path, "waveform_slope.png")
             plt.savefig(plot_save_path, dpi=720)
+            if not show_plot:
+                plt.close()
         if show_plot:
             plt.show()
 
@@ -289,6 +297,8 @@ class Waveform:
         if len(plot_save_path) > 0 and check_save_path(plot_save_path, create_path):
             plot_save_path = get_plot_name(plot_save_path, "waveform.png")
             plt.savefig(plot_save_path, dpi=720)
+            if not show_plot:
+                plt.close()
         if show_plot or anotate:
             plt.show()
 

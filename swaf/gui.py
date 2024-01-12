@@ -125,17 +125,19 @@ def file_processing_gui(file_path):
 
 # ---------------- #
 def waveform_processing_gui(Recording):
-    # TODO: export waveform measures to gui tab, and save as .csv file
+    # TODO: export waveform measures to right part of gui, and save as .csv file?
+    # TODO: add checkbox for what to extract: peaks, slope, point_list for slopes
 
     def add_line(i):
-        return [[sg.T("waveform "+str(i+1)+" ->  t start: "), sg.InputText(key=("-t_start-", i), size=(10,1)), sg.T("t stop"), sg.InputText(key=("-t_stop-", i), size=(10,1))]]
+        return [[sg.T("waveform "+str(i+1)+" ->  t start: "), sg.InputText(key=("-t_start-", i), size=(10,1)), sg.T("t stop:"), sg.InputText(key=("-t_stop-", i), size=(10,1)), sg.Button("show plot", enable_events=True, key=("show_plot", i))]]
 
-    column_layout = [[sg.T("waveform "+str(1)+" ->  t start: "), sg.InputText(key=("-t_start-", 0), size=(10,1)), sg.T("t stop"), sg.InputText(key=("-t_stop-", 0), size=(10,1)), sg.Button("+", enable_events=True, key="-add-")]]
+    column_layout = [[sg.T("waveform "+str(1)+" ->  t start: "), sg.InputText(key=("-t_start-", 0), size=(10,1)), sg.T("t stop:"), sg.InputText(key=("-t_stop-", 0), size=(10,1)), sg.Button("show plot", enable_events=True, key=("show_plot", 0)), sg.Button("+", enable_events=True, key="-add-")]]
 
     layout = [
-        [sg.Text("TODO")],
+        [sg.Text("Waveform features extraction:")],
+        [sg.Checkbox("Peaks", key="-peaks-"), sg.Checkbox("Slopes", key="-slopes-")],
         [sg.Column(column_layout, key='-Column-')],
-        [sg.Button("Go"), sg.Button("Exit")]
+        [sg.Button("Go"), sg.Button("Reset"), sg.Button("Exit")]
     ]
     waveform_processing_window = sg.Window("Swaf - Average waveform processing", layout)
     i = 1
@@ -145,13 +147,32 @@ def waveform_processing_gui(Recording):
             waveform_processing_window.close()
             return
 
+        if event == "Reset":
+            waveform_processing_window.close()
+            waveform_processing_gui(Recording)
+            return
+
         if event == "-add-":
             waveform_processing_window.extend_layout(waveform_processing_window['-Column-'], add_line(i))
             i += 1
 
-        # if event == "Go":
-        #     if gui_check_t(float(Recording.t_stop), values):
-        #         continue
+        for try_i in range(i):
+            if event == ("show_plot", try_i):
+                Recording.get_ave_waveform(float(values[("-t_start-", try_i)]), float(values[("-t_stop-", try_i)]), show_plot=True, anotate=True)
+                continue
+
+        if event == "Go":
+            peaks_list = []
+            slope_list_list = []
+            for waveform_i in range(i):
+                Waveform = Recording.get_ave_waveform(float(values[("-t_start-", try_i)]), float(values[("-t_stop-", try_i)]))
+                if values[("-peaks-")]:
+                    peaks_list.append(Waveform.get_waveform_peaks())
+                if values[("-slopes-")]:
+                    slope_list_list.append(Waveform.get_waveform_slope_list())
+
+            print(peaks_list)
+            print(slope_list_list)
 
 # ---------------- #
 def display_data_gui(Recording, t_start, t_stop, show, save, raw):

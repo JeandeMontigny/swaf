@@ -1,3 +1,4 @@
+import pyperclip
 import numpy as np
 import PySimpleGUI as sg
 
@@ -57,7 +58,7 @@ def file_processing_gui(file_path):
         [sg.Text("  Recording length: " + str(Recording.t_stop) + " (at " + str(Recording.sampling_rate) + ")")],
         [sg.Button("Average waveform analysis")],
         [rb],
-        [sg.Text("time window (s):"), sg.Input(float(Recording.t_start), key="-t_start-"), sg.Input(float(Recording.t_stop), key="-t_stop-")],
+        [sg.Text("time window (s):"), sg.Input(np.ceil(float(Recording.t_start)), key="-t_start-", size=(16,1)), sg.Input(np.floor(float(Recording.t_stop)), key="-t_stop-", size=(16,1))],
         [sg.Column(layout_raw, key="-layout raw-"), sg.Column(layout_ave, visible=False, key="-layout ave-")],
         [sg.Checkbox("save plot", key="-save plot-"), sg.Input(), sg.FolderBrowse("save path")],
         [sg.Checkbox("show data", key="-show data-"), sg.Checkbox("Save data (.csv)", key="-save data-")],
@@ -95,12 +96,8 @@ def file_processing_gui(file_path):
             if gui_check_t(float(Recording.t_stop), values):
                 continue
 
-            if values["-show data-"]:
-                display_data_gui(Recording, float(values["-t_start-"]), float(values["-t_stop-"]), values["-plot_raw-"])
-
-            if values["-save data-"]:
-                # TODO: save as .csv file
-                print("TODO")
+            if values["-show data-"] or values["-save data-"]:
+                display_data_gui(Recording, float(values["-t_start-"]), float(values["-t_stop-"]),  values["-show data-"], values["-save data-"],values["-plot_raw-"])
 
             if values["-plot_raw-"]:
                 # if neither show/save plot or show/save data is ticked
@@ -110,6 +107,9 @@ def file_processing_gui(file_path):
                 if values["-save plot-"]:
                     Recording.plot_analogsig(float(values["-t_start-"]), float(values["-t_stop-"]), plot_stim=not(values["-plot stim-"]) ,show_plot=values["-show plot raw-"], plot_save_path=values["save path"])
                 else:
+                    if float(values["-t_stop-"]) - float(values["-t_start-"]) > 3600:
+                        display_message_gui("Aborting: you are trying to plot the raw data over a long time window (from \'show plot\' checkbox). This might cause some issues.\nPlease, define a smaller time window (< 3600s (1h))")
+                        continue
                     Recording.plot_analogsig(float(values["-t_start-"]), float(values["-t_stop-"]), plot_stim=not(values["-plot stim-"]), show_plot=values["-show plot raw-"])
 
             # if -get_ave_waveform- key
@@ -154,10 +154,10 @@ def waveform_processing_gui(Recording):
         #         continue
 
 # ---------------- #
-def display_data_gui(Recording, t_start, t_stop, raw):
-    if raw:
+def display_data_gui(Recording, t_start, t_stop, show, save, raw):
+    if show and raw:
         if t_stop - t_start > 2:
-            display_message_gui("Aborting: too many data elements to display (from \'show data\' checkbox).\nTry defining a smaller time window (< 2s for raw data)")
+            display_message_gui("Aborting: too many data elements to display (from \'show data\' checkbox).\nPlease, define a smaller time window (< 2s for raw data)")
             return
 
         id_start = int((t_start-float(Recording.segment.t_start)) * float(Recording.sampling_rate))
@@ -165,27 +165,53 @@ def display_data_gui(Recording, t_start, t_stop, raw):
         x = [[str(float(t))] for t in Recording.segment.analogsignals[2].times[id_start:id_stop]]
         y = [[str(float(v))] for v in Recording.signal[id_start:id_stop]]
 
-    else:
+    elif not raw:
         Ave_Waveform = Recording.get_ave_waveform(t_start, t_stop)
         x = [[str(t)] for t in Ave_Waveform.time]
         y = [[str(v)] for v in Ave_Waveform.waveform]
 
-    layout = [
-        [sg.Table(np.concatenate((x, y), axis=1), headings=["time (s)", "V"])],
-        [sg.Input("output folder path"), sg.FolderBrowse("save path"), sg.InputText("file name", key="-file name-", size=(10,1))],
-        [sg.Button("Save as .csv"), sg.Button("Exit")]
-    ]
+    data = np.concatenate((x, y), axis=1)
+    if save:
+        layout = [
+            [sg.Input("output folder path"), sg.FolderBrowse("save path"), sg.InputText("file name", key="-file name-", size=(10,1))],
+            [sg.Button("Go"), sg.Button("Exit")]
+        ]
+        save_data_window = sg.Window("Swaf - Data", layout)
+        while True:
+            event, values = save_data_window.read()
 
-    display_data_window = sg.Window("Swaf - Data", layout)
-    while True:
-        event, values = display_data_window.read()
+            if event == "Exit":
+                save_data_window.close()
+                return
+            if event == "Go":
+                if not save_csv(data, values):
+                    continue
 
-        if event == "Exit":
-            display_data_window.close()
-            return
+    if show:
+        layout = [
+            [sg.Text("You can select multiple rows (using shit+click or ctrl+click) and copy them to clip board using Ctrl+c.\nSave button saves all the talbe.")],
+            [sg.Table(data, headings=["time (s)", "V"], enable_events=True, key="-table-")],
+            [sg.Input("output folder path"), sg.FolderBrowse("save path"), sg.InputText("file name", key="-file name-", size=(10,1))],
+            [sg.Button("Save as .csv"), sg.Button("Exit")]
+        ]
 
-        if event == "Save as .csv":
-            print("TODO, save in", values["save path"]+"/"+values["-file name-"])
+        display_data_window = sg.Window("Swaf - Data", layout, finalize=True)
+        display_data_window.bind("<Control-c>", "-control c-")
+        while True:
+            event, values = display_data_window.read()
+
+            if event == "-control c-":
+                items = values['-table-']
+                lst = list(map(lambda x:' '.join(data[x]), items))
+                text = "\n".join(lst)
+                pyperclip.copy(text)
+
+            if event == "Exit":
+                display_data_window.close()
+                return
+            if event == "Save as .csv":
+                if not save_csv(data, values):
+                    continue
 
 # ---------------- #
 def display_message_gui(message):
@@ -199,6 +225,21 @@ def display_message_gui(message):
         if event == "Ok":
             display_message_window.close()
             return
+
+# ---------------- #
+def save_csv(data, values):
+    if values["save path"] == "" or values["-file name-"] == "file name":
+        display_message_gui("Please, enter a saving path and file name")
+        return False
+    path = ""
+    if values["-file name-"][len(values["-file name-"])-4:] == ".csv":
+        path = values["save path"]+"/"+values["-file name-"]
+    else:
+        path = values["save path"]+"/"+values["-file name-"]+".csv"
+
+    np.savetxt(path, data, delimiter=',', fmt='%s')
+    print("data saved as", values["save path"]+"/"+values["-file name-"])
+    return True
 
 # ---------------- #
 def gui_check_t(rec_t_stop, values):

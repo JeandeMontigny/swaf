@@ -6,7 +6,7 @@ requirements = [
     "numpy",
     "scipy",
     "neo",
-    "multiprocessing",
+    "PySimpleGUI",
 ]
 
 # Usage: pip install -e .[dev]
@@ -27,5 +27,5 @@ setup(
     name="swaf",
     packages=["swaf"],
     url="",
-    version="0.1",
+    version="0.2",
 )

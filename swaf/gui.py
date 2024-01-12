@@ -93,7 +93,7 @@ def file_processing_gui(file_path):
         # ---- #
         if event == "Go":
             # check t_start t_stop
-            if gui_check_t(float(Recording.t_stop), values):
+            if gui_check_t(float(Recording.t_stop), values["-t_start-"], values["-t_stop-"]):
                 continue
 
             if values["-show data-"] or values["-save data-"]:
@@ -165,14 +165,23 @@ def waveform_processing_gui(Recording):
             peaks_list = []
             slope_list_list = []
             for waveform_i in range(i):
-                Waveform = Recording.get_ave_waveform(float(values[("-t_start-", try_i)]), float(values[("-t_stop-", try_i)]))
-                if values[("-peaks-")]:
-                    peaks_list.append(Waveform.get_waveform_peaks())
-                if values[("-slopes-")]:
-                    slope_list_list.append(Waveform.get_waveform_slope_list())
+                if gui_check_t(float(Recording.t_stop), values[("-t_start-", waveform_i)], values[("-t_stop-", waveform_i)]):
+                    continue
+                else:
+                    Waveform = Recording.get_ave_waveform(float(values[("-t_start-", waveform_i)]), float(values[("-t_stop-", waveform_i)]))
+                    if values[("-peaks-")]:
+                        # TODO: parameters?
+                        peaks_list.append(Waveform.get_waveform_peaks())
+                    if values[("-slopes-")]:
+                        # TODO: point_list option. other parameters?
+                        slope_list_list.append(Waveform.get_waveform_slope_list())
 
-            print(peaks_list)
-            print(slope_list_list)
+            # TODO: display values in right side of windows
+            #       can export values
+            if values[("-peaks-")]:
+                print(peaks_list)
+            if values[("-slopes-")]:
+                print(slope_list_list)
 
 # ---------------- #
 def display_data_gui(Recording, t_start, t_stop, show, save, raw):
@@ -263,8 +272,8 @@ def save_csv(data, values):
     return True
 
 # ---------------- #
-def gui_check_t(rec_t_stop, values):
-    if values["-t_start-"] == '' or values["-t_stop-"] == '' or (not values["-t_start-"].replace(".", "", 1).isdigit()) or (not values["-t_stop-"].replace(".", "", 1).isdigit()) or float(values["-t_start-"]) < 0 or float(values["-t_stop-"]) > rec_t_stop:
+def gui_check_t(rec_t_stop, t_start, t_stop):
+    if t_start == '' or t_stop == '' or (not t_start.replace(".", "", 1).isdigit()) or (not t_stop.replace(".", "", 1).isdigit()) or float(t_start) < 0 or float(t_stop) > rec_t_stop:
         display_message_gui("start and stop times need to be within the recording length")
         return True
     return False

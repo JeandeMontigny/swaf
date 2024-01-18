@@ -125,18 +125,23 @@ def file_processing_gui(file_path):
 
 # ---------------- #
 def waveform_processing_gui(Recording):
-    # TODO: export waveform measures to right part of gui, and save as .csv file?
-    # TODO: add checkbox for what to extract: peaks, slope, point_list for slopes
 
     def add_line(i):
         return [[sg.T("waveform "+str(i+1)+" ->  t start: "), sg.InputText(key=("-t_start-", i), size=(10,1)), sg.T("t stop:"), sg.InputText(key=("-t_stop-", i), size=(10,1)), sg.Button("show plot", enable_events=True, key=("show_plot", i))]]
 
     column_layout = [[sg.T("waveform "+str(1)+" ->  t start: "), sg.InputText(key=("-t_start-", 0), size=(10,1)), sg.T("t stop:"), sg.InputText(key=("-t_stop-", 0), size=(10,1)), sg.Button("show plot", enable_events=True, key=("show_plot", 0)), sg.Button("+", enable_events=True, key="-add-")]]
 
+    layout_display = [
+        [sg.Table([], headings=["peak time (s)", "peak value (V)"], key="-results peaks-"), sg.Table([], headings=["window (frame)", "slope value (V)"], key="-results slopes-")],
+        [sg.HSeparator()],
+        [sg.Input("output folder path", size=(20,1)), sg.FolderBrowse("save path"), sg.InputText("file name", key="-file name-", size=(10,1))],
+        [sg.Button("Save as .csv")]
+    ]
+
     layout = [
         [sg.Text("Waveform features extraction:")],
         [sg.Checkbox("Peaks", key="-peaks-"), sg.Checkbox("Slopes", key="-slopes-")],
-        [sg.Column(column_layout, key='-Column-')],
+        [sg.Column(column_layout, key='-Column-'), sg.VSeparator(), sg.Column(layout_display, visible=False, key="-display results-")],
         [sg.Button("Go"), sg.Button("Reset"), sg.Button("Exit")]
     ]
     waveform_processing_window = sg.Window("Swaf - Average waveform processing", layout)
@@ -158,11 +163,12 @@ def waveform_processing_gui(Recording):
 
         for try_i in range(i):
             if event == ("show_plot", try_i):
-                Recording.get_ave_waveform(float(values[("-t_start-", try_i)]), float(values[("-t_stop-", try_i)]), show_plot=True, anotate=True)
+                if not gui_check_t(float(Recording.t_stop), values[("-t_start-", try_i)], values[("-t_stop-", try_i)]):
+                    Recording.get_ave_waveform(float(values[("-t_start-", try_i)]), float(values[("-t_stop-", try_i)]), show_plot=True, anotate=True)
                 continue
 
         if event == "Go":
-            peaks_list = []
+            peaks_list_list = []
             slope_list_list = []
             for waveform_i in range(i):
                 if gui_check_t(float(Recording.t_stop), values[("-t_start-", waveform_i)], values[("-t_stop-", waveform_i)]):
@@ -170,18 +176,47 @@ def waveform_processing_gui(Recording):
                 else:
                     Waveform = Recording.get_ave_waveform(float(values[("-t_start-", waveform_i)]), float(values[("-t_stop-", waveform_i)]))
                     if values[("-peaks-")]:
-                        # TODO: parameters?
-                        peaks_list.append(Waveform.get_waveform_peaks())
-                    if values[("-slopes-")]:
-                        # TODO: point_list option. other parameters?
-                        slope_list_list.append(Waveform.get_waveform_slope_list())
+                        peaks_list = []
+                        # TODO: parameters exclusion_dist, half_width, overlap
+                        for peak_t in Waveform.get_waveform_peaks():
+                            peaks_list.append([round((peak_t-(0.05*float(Waveform.sampling_rate)))/float(Waveform.sampling_rate), 5), round(Waveform.waveform[peak_t], 3)])
+                        peaks_list_list.append(peaks_list)
 
-            # TODO: display values in right side of windows
-            #       can export values
+                    if values[("-slopes-")]:
+                        # TODO: point_list option and other parameters
+                        # if not values["-slope time list"]:
+                        slope_time_list = Waveform.get_waveform_slope_list()
+                        slope_list_list.append(Waveform.get_waveform_slope(slope_time_list))
+
+                    tab_peaks = []
+                    for peak_list in peaks_list_list:
+                        for tuple in peak_list:
+                            tab_peaks.append(tuple)
+                        tab_peaks.append([[], []])
+                    waveform_processing_window["-results peaks-"].update(tab_peaks)
+
+                    tab_slopes = []
+                    for slope_list in slope_list_list:
+                        for tuple in slope_list:
+                            tab_slopes.append([str(tuple[0]), tuple[1]])
+                        tab_slopes.append([[], []])
+                    waveform_processing_window["-results slopes-"].update(tab_slopes)
+
+                    waveform_processing_window["-display results-"].update(visible=True)
+
             if values[("-peaks-")]:
-                print(peaks_list)
+                print(peaks_list_list)
             if values[("-slopes-")]:
                 print(slope_list_list)
+
+        if event == "Save as .csv":
+            # TODO: improve output format
+            if values[("-peaks-")]:
+                if not save_csv([str(tuple) for tuple in tab_peaks], values["save path"], values["-file name-"]+"_peaks"):
+                    continue
+            if values[("-slopes-")]:
+                if not save_csv([str(tuple) for tuple in slope_list_list], values["save path"], values["-file name-"]+"_slopes"):
+                    continue
 
 # ---------------- #
 def display_data_gui(Recording, t_start, t_stop, show, save, raw):
@@ -257,18 +292,18 @@ def display_message_gui(message):
             return
 
 # ---------------- #
-def save_csv(data, values):
-    if values["save path"] == "" or values["-file name-"] == "file name":
+def save_csv(data, path, name):
+    if path == "" or name == "file name":
         display_message_gui("Please, enter a saving path and file name")
         return False
-    path = ""
-    if values["-file name-"][len(values["-file name-"])-4:] == ".csv":
-        path = values["save path"]+"/"+values["-file name-"]
+    save_path = ""
+    if name[len(name)-4:] == ".csv":
+        save_path = path+"/"+name
     else:
-        path = values["save path"]+"/"+values["-file name-"]+".csv"
+        save_path = path+"/"+name+".csv"
 
-    np.savetxt(path, data, delimiter=',', fmt='%s')
-    print("data saved as", values["save path"]+"/"+values["-file name-"])
+    np.savetxt(save_path, data, delimiter=',', fmt='%s')
+    print("data saved as", save_path)
     return True
 
 # ---------------- #

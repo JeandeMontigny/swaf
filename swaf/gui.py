@@ -132,7 +132,8 @@ def waveform_processing_gui(Recording):
     column_layout = [[sg.T("waveform "+str(1)+" ->  t start: "), sg.InputText(key=("-t_start-", 0), size=(10,1)), sg.T("t stop:"), sg.InputText(key=("-t_stop-", 0), size=(10,1)), sg.Button("show plot", enable_events=True, key=("show_plot", 0)), sg.Button("+", enable_events=True, key="-add-")]]
 
     layout_display = [
-        [sg.Table([], headings=["peak time (s)", "peak value (V)"], key="-results peaks-"), sg.Table([], headings=["window (frame)", "slope value (V)"], key="-results slopes-")],
+        [sg.Text("You can select multiple rows (using shit+click or ctrl+click) and copy them to clip board using Ctrl+c.\nSave button saves all the talbe.")],
+        [sg.Table([], headings=["peak time (s)", "peak value (V)"], enable_events=True, key="-results peaks-"), sg.Table([], headings=["window (frame)", "slope value (V)"], enable_events=True, key="-results slopes-")],
         [sg.HSeparator()],
         [sg.Input("output folder path", size=(20,1)), sg.FolderBrowse("save path"), sg.InputText("file name", key="-file name-", size=(10,1))],
         [sg.Button("Save as .csv")]
@@ -144,7 +145,9 @@ def waveform_processing_gui(Recording):
         [sg.Column(column_layout, key='-Column-'), sg.VSeparator(), sg.Column(layout_display, visible=False, key="-display results-")],
         [sg.Button("Go"), sg.Button("Reset"), sg.Button("Exit")]
     ]
-    waveform_processing_window = sg.Window("Swaf - Average waveform processing", layout)
+    waveform_processing_window = sg.Window("Swaf - Average waveform processing", layout, finalize=True)
+    waveform_processing_window.bind("<Control-c>", "-control c-")
+
     i = 1
     while True:
         event, values = waveform_processing_window.read()
@@ -208,6 +211,13 @@ def waveform_processing_gui(Recording):
                 print(peaks_list_list)
             if values[("-slopes-")]:
                 print(slope_list_list)
+
+        if event == "-control c-":
+            items_peaks = values["-results peaks-"]
+            items_slopes = values["-results slopes-"]
+            lst = list(map(lambda x:' '.join(str(tab_peaks[x])), items_peaks)) + list(map(lambda y:' '.join(str(tab_slopes[y])), items_slopes))
+            text = "\n".join(lst)
+            pyperclip.copy(text)
 
         if event == "Save as .csv":
             # TODO: improve output format

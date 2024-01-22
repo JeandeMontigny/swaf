@@ -60,12 +60,14 @@ def file_processing_gui(file_path):
         [rb],
         [sg.Text("time window (s):"), sg.Input(np.ceil(float(Recording.t_start)), key="-t_start-", size=(16,1)), sg.Input(np.floor(float(Recording.t_stop)), key="-t_stop-", size=(16,1))],
         [sg.Column(layout_raw, key="-layout raw-"), sg.Column(layout_ave, visible=False, key="-layout ave-")],
-        [sg.Checkbox("save plot", key="-save plot-"), sg.Input(), sg.FolderBrowse("save path")],
+        [sg.Checkbox("save plot", enable_events=True, key="-save plot-"), sg.Input("plot saving path", visible=False, key="-plot save path input-"), sg.FolderBrowse("save path", visible=False, key="-plot save path-")],
         [sg.Checkbox("show data", key="-show data-"), sg.Checkbox("Save data (.csv)", key="-save data-")],
         [sg.Button("Go"), sg.Button("Exit")],
     ]
 
     processing_window = sg.Window("Swaf - File processing", layout)
+
+    # ---- #
     while True:
         event, values = processing_window.read()
 
@@ -90,14 +92,17 @@ def file_processing_gui(file_path):
         if event == "Average waveform analysis":
             waveform_processing_gui(Recording)
 
-        # ---- #
+        if event == "-save plot-":
+            processing_window["-plot save path input-"].update(visible=True)
+            processing_window["-plot save path-"].update(visible=True)
+
         if event == "Go":
             # check t_start t_stop
-            if gui_check_t(float(Recording.t_stop), values["-t_start-"], values["-t_stop-"]):
+            if not gui_check_t(float(Recording.t_stop), values["-t_start-"], values["-t_stop-"]):
                 continue
 
             if values["-show data-"] or values["-save data-"]:
-                display_data_gui(Recording, float(values["-t_start-"]), float(values["-t_stop-"]),  values["-show data-"], values["-save data-"],values["-plot_raw-"])
+                display_data_gui(Recording, float(values["-t_start-"]), float(values["-t_stop-"]),  values["-show data-"], values["-save data-"], values["-plot_raw-"])
 
             if values["-plot_raw-"]:
                 # if neither show/save plot or show/save data is ticked
@@ -105,7 +110,7 @@ def file_processing_gui(file_path):
                     display_message_gui("tick at least one action to perform")
                     continue
                 if values["-save plot-"]:
-                    Recording.plot_analogsig(float(values["-t_start-"]), float(values["-t_stop-"]), plot_stim=not(values["-plot stim-"]) ,show_plot=values["-show plot raw-"], plot_save_path=values["save path"])
+                    Recording.plot_analogsig(float(values["-t_start-"]), float(values["-t_stop-"]), plot_stim=not(values["-plot stim-"]), show_plot=values["-show plot raw-"], plot_save_path=values["-plot save path-"])
                 else:
                     if float(values["-t_stop-"]) - float(values["-t_start-"]) > 3600:
                         display_message_gui("Aborting: you are trying to plot the raw data over a long time window (from \'show plot\' checkbox). This might cause some issues.\nPlease, define a smaller time window (< 3600s (1h))")
@@ -119,7 +124,7 @@ def file_processing_gui(file_path):
                     display_message_gui("tick at least one action to perform")
                     continue
                 if values["-save plot-"]:
-                    Recording.get_ave_waveform(float(values["-t_start-"]), float(values["-t_stop-"]), show_plot=values["-show plot ave-"], anotate=values["-anotate-"], plot_save_path=values["save path"])
+                    Recording.get_ave_waveform(float(values["-t_start-"]), float(values["-t_stop-"]), show_plot=values["-show plot ave-"], anotate=values["-anotate-"], plot_save_path=values["-plot save path-"])
                 else:
                     Recording.get_ave_waveform(float(values["-t_start-"]), float(values["-t_stop-"]), show_plot=values["-show plot ave-"], anotate=values["-anotate-"])
 
@@ -148,6 +153,7 @@ def waveform_processing_gui(Recording):
     waveform_processing_window = sg.Window("Swaf - Average waveform processing", layout, finalize=True)
     waveform_processing_window.bind("<Control-c>", "-control c-")
 
+    # ---- #
     i = 1
     while True:
         event, values = waveform_processing_window.read()
@@ -166,7 +172,7 @@ def waveform_processing_gui(Recording):
 
         for try_i in range(i):
             if event == ("show_plot", try_i):
-                if not gui_check_t(float(Recording.t_stop), values[("-t_start-", try_i)], values[("-t_stop-", try_i)]):
+                if gui_check_t(float(Recording.t_stop), values[("-t_start-", try_i)], values[("-t_stop-", try_i)]):
                     Recording.get_ave_waveform(float(values[("-t_start-", try_i)]), float(values[("-t_stop-", try_i)]), show_plot=True, anotate=True)
                 continue
 
@@ -174,7 +180,7 @@ def waveform_processing_gui(Recording):
             peaks_list_list = []
             slope_list_list = []
             for waveform_i in range(i):
-                if gui_check_t(float(Recording.t_stop), values[("-t_start-", waveform_i)], values[("-t_stop-", waveform_i)]):
+                if not gui_check_t(float(Recording.t_stop), values[("-t_start-", waveform_i)], values[("-t_stop-", waveform_i)]):
                     continue
                 else:
                     Waveform = Recording.get_ave_waveform(float(values[("-t_start-", waveform_i)]), float(values[("-t_stop-", waveform_i)]))
@@ -215,23 +221,23 @@ def waveform_processing_gui(Recording):
         if event == "-control c-":
             items_peaks = values["-results peaks-"]
             items_slopes = values["-results slopes-"]
-            lst = list(map(lambda x:' '.join(str(tab_peaks[x])), items_peaks)) + list(map(lambda y:' '.join(str(tab_slopes[y])), items_slopes))
+            lst = list(map(lambda x:' '.join(str(tab_peaks[x]).replace('[','').replace(']','')), items_peaks)) + list(map(lambda y:' '.join(str(tab_slopes[y]).replace('[','').replace(']','').replace('\'','')), items_slopes))
             text = "\n".join(lst)
             pyperclip.copy(text)
 
         if event == "Save as .csv":
-            # TODO: improve output format
             if values[("-peaks-")]:
-                if not save_csv([str(tuple) for tuple in tab_peaks], values["save path"], values["-file name-"]+"_peaks"):
+                if not save_csv([str(tuple).replace('[','').replace(']','') for tuple in tab_peaks], values["save path"], values["-file name-"]+"_peaks"):
                     continue
             if values[("-slopes-")]:
-                if not save_csv([str(tuple) for tuple in slope_list_list], values["save path"], values["-file name-"]+"_slopes"):
+                # TODO: improve output. change time from frames to seconds
+                if not save_csv([str(tuple).replace('[','').replace(']','').replace('(','').replace(')','') for tuple in slope_list_list], values["save path"], values["-file name-"]+"_slopes"):
                     continue
 
 # ---------------- #
 def display_data_gui(Recording, t_start, t_stop, show, save, raw):
-    if show and raw:
-        if t_stop - t_start > 2:
+    if (raw and show) or (raw and save):
+        if (raw and show) and t_stop - t_start > 2:
             display_message_gui("Aborting: too many data elements to display (from \'show data\' checkbox).\nPlease, define a smaller time window (< 2s for raw data)")
             return
 
@@ -240,18 +246,22 @@ def display_data_gui(Recording, t_start, t_stop, show, save, raw):
         x = [[str(float(t))] for t in Recording.segment.analogsignals[2].times[id_start:id_stop]]
         y = [[str(float(v))] for v in Recording.signal[id_start:id_stop]]
 
-    elif not raw:
+    if not raw:
         Ave_Waveform = Recording.get_ave_waveform(t_start, t_stop)
         x = [[str(t)] for t in Ave_Waveform.time]
         y = [[str(v)] for v in Ave_Waveform.waveform]
 
-    data = np.concatenate((x, y), axis=1)
+    if x and y:
+        data = np.concatenate((x, y), axis=1)
+
     if save:
         layout = [
             [sg.Input("output folder path"), sg.FolderBrowse("save path"), sg.InputText("file name", key="-file name-", size=(10,1))],
             [sg.Button("Go"), sg.Button("Exit")]
         ]
         save_data_window = sg.Window("Swaf - Data", layout)
+
+        # ---- #
         while True:
             event, values = save_data_window.read()
 
@@ -259,7 +269,7 @@ def display_data_gui(Recording, t_start, t_stop, show, save, raw):
                 save_data_window.close()
                 return
             if event == "Go":
-                if not save_csv(data, values):
+                if not save_csv(data, values["save path"], values[("-file name-")]):
                     continue
 
     if show:
@@ -272,6 +282,8 @@ def display_data_gui(Recording, t_start, t_stop, show, save, raw):
 
         display_data_window = sg.Window("Swaf - Data", layout, finalize=True)
         display_data_window.bind("<Control-c>", "-control c-")
+
+        # ---- #
         while True:
             event, values = display_data_window.read()
 
@@ -285,7 +297,7 @@ def display_data_gui(Recording, t_start, t_stop, show, save, raw):
                 display_data_window.close()
                 return
             if event == "Save as .csv":
-                if not save_csv(data, values):
+                if not save_csv(data, values["save path"], values[("-file name-")]):
                     continue
 
 # ---------------- #
@@ -295,6 +307,8 @@ def display_message_gui(message):
         [sg.Button("Ok")]
     ]
     display_message_window = sg.Window("Swaf - Message", layout)
+
+    # ---- #
     while True:
         event, values = display_message_window.read()
         if event == "Ok":
@@ -320,5 +334,5 @@ def save_csv(data, path, name):
 def gui_check_t(rec_t_stop, t_start, t_stop):
     if t_start == '' or t_stop == '' or (not t_start.replace(".", "", 1).isdigit()) or (not t_stop.replace(".", "", 1).isdigit()) or float(t_start) < 0 or float(t_stop) > rec_t_stop:
         display_message_gui("start and stop times need to be within the recording length")
-        return True
-    return False
+        return False
+    return True

@@ -207,7 +207,7 @@ def waveform_processing_gui(Recording):
                     tab_slopes = []
                     for slope_list in slope_list_list:
                         for tuple in slope_list:
-                            tab_slopes.append([str(tuple[0]), tuple[1]])
+                            tab_slopes.append([str(round((tuple[0][0]-(0.05*float(Waveform.sampling_rate)))/float(Waveform.sampling_rate), 5)) + ", " + str(round((tuple[0][1]-(0.05*float(Waveform.sampling_rate)))/float(Waveform.sampling_rate), 5)), tuple[1]])
                         tab_slopes.append([[], []])
                     waveform_processing_window["-results slopes-"].update(tab_slopes)
 
@@ -230,15 +230,14 @@ def waveform_processing_gui(Recording):
                 if not save_csv([str(tuple).replace('[','').replace(']','') for tuple in tab_peaks], values["save path"], values["-file name-"]+"_peaks"):
                     continue
             if values[("-slopes-")]:
-                # TODO: improve output. change time from frames to seconds
-                if not save_csv([str(tuple).replace('[','').replace(']','').replace('(','').replace(')','') for tuple in slope_list_list], values["save path"], values["-file name-"]+"_slopes"):
+                if not save_csv([str(tuple).replace('[','').replace(']','').replace('(','').replace(')','').replace('\'','') for tuple in tab_slopes], values["save path"], values["-file name-"]+"_slopes"):
                     continue
 
 # ---------------- #
 def display_data_gui(Recording, t_start, t_stop, show, save, raw):
-    if (raw and show) or (raw and save):
+    if raw:
         if (raw and show) and t_stop - t_start > 2:
-            display_message_gui("Aborting: too many data elements to display (from \'show data\' checkbox).\nPlease, define a smaller time window (< 2s for raw data)")
+            display_message_gui("Aborting: too many data elements to display (from \'show data\' checkbox).\nPlease, define a smaller time window (< 2s for raw data) or consider saving data as a .csv file instead")
             return
 
         id_start = int((t_start-float(Recording.segment.t_start)) * float(Recording.sampling_rate))
@@ -251,8 +250,8 @@ def display_data_gui(Recording, t_start, t_stop, show, save, raw):
         x = [[str(t)] for t in Ave_Waveform.time]
         y = [[str(v)] for v in Ave_Waveform.waveform]
 
-    if x and y:
-        data = np.concatenate((x, y), axis=1)
+    data = np.concatenate((x, y), axis=1)
+    data = [[str(tuple[0]).replace('[','').replace(']','').replace('\'',''), str(tuple[1]).replace('[','').replace(']','').replace('\'','')] for tuple in data]
 
     if save:
         layout = [

@@ -70,7 +70,6 @@ class Spike_Recording:
         """
         TODO
         """
-        #TODO: default values for t_start t_stop, averaging all Spike_Recording signal
         # catch out of recording errors
         self.check_t(t_start, t_stop)
 
@@ -219,8 +218,10 @@ class Waveform:
         si = 0
         for points in point_list:
             si += 1
-            s_start = points[0]
-            s_stop = points[1]
+            # check if times are expressed as seconds (value < 1) or frames
+            s_start = int(np.floor((points[0]+0.05)*float(self.sampling_rate))) if points[0] < 1 else int(points[0])
+            s_stop = int(np.floor((points[1]+0.05)*float(self.sampling_rate))) if points[1] < 1 else int(points[1])
+
             point_a = [s_start, self.waveform[s_start]]
             point_b = [s_stop, self.waveform[s_stop]]
 

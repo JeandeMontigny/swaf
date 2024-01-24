@@ -146,7 +146,10 @@ def waveform_processing_gui(Recording):
 
     layout = [
         [sg.Text("Waveform features extraction:")],
-        [sg.Checkbox("Peaks", key="-peaks-"), sg.Checkbox("Slopes", key="-slopes-")],
+        [sg.Checkbox("Peaks", key="-peaks-"), sg.Button("options", enable_events=True, key="-options peaks-"), sg.Checkbox("Slopes", key="-slopes-"), sg.Button("options", enable_events=True, key="-options slopes-")],
+        # TODO: check if inputs are correct (point_list sec->frame)
+        [sg.Column([[sg.Text("peaks exclusion distance:"), sg.Input(30, size=(3, 1), key="-exclusion_dist-"), sg.Text("window size:"), sg.Input(2, size=(2, 1), key="-half_width-"), sg.Text("overlap:"),sg.Input(2, size=(2, 1), key="-overlap-"), sg.Checkbox("plot peaks", key="-peaks_plot-")]], key="-peaks option tab-", visible=False)],
+        [sg.Column([[sg.Text("slopes window list:"), sg.Input("[(t1, t2), (t3, t4)]", size=(16, 1), key="-point_list-")]], key="-slopes option tab-", visible=False)],
         [sg.Column(column_layout, key='-Column-'), sg.VSeparator(), sg.Column(layout_display, visible=False, key="-display results-")],
         [sg.Button("Go"), sg.Button("Reset"), sg.Button("Exit")]
     ]
@@ -170,6 +173,11 @@ def waveform_processing_gui(Recording):
             waveform_processing_window.extend_layout(waveform_processing_window['-Column-'], add_line(i))
             i += 1
 
+        if event == "-options peaks-":
+            waveform_processing_window["-peaks option tab-"].update(visible=True)
+        if event == "-options slopes-":
+            waveform_processing_window["-slopes option tab-"].update(visible=True)
+
         for try_i in range(i):
             if event == ("show_plot", try_i):
                 if gui_check_t(float(Recording.t_stop), values[("-t_start-", try_i)], values[("-t_stop-", try_i)]):
@@ -186,16 +194,28 @@ def waveform_processing_gui(Recording):
                     Waveform = Recording.get_ave_waveform(float(values[("-t_start-", waveform_i)]), float(values[("-t_stop-", waveform_i)]))
                     if values[("-peaks-")]:
                         peaks_list = []
-                        # TODO: parameters exclusion_dist, half_width, overlap
-                        for peak_t in Waveform.get_waveform_peaks():
+                        for peak_t in Waveform.get_waveform_peaks(int(values["-exclusion_dist-"]), int(values["-half_width-"]), int(values["-overlap-"]), show_plot=values["-peaks_plot-"]):
                             peaks_list.append([round((peak_t-(0.05*float(Waveform.sampling_rate)))/float(Waveform.sampling_rate), 5), round(Waveform.waveform[peak_t], 3)])
                         peaks_list_list.append(peaks_list)
 
                     if values[("-slopes-")]:
-                        # TODO: point_list option and other parameters
-                        # if not values["-slope time list"]:
-                        slope_time_list = Waveform.get_waveform_slope_list()
-                        slope_list_list.append(Waveform.get_waveform_slope(slope_time_list))
+                        if values["-point_list-"] == "[(t1, t2), (t3, t4)]":
+                            slope_list_list.append(Waveform.get_waveform_slope(Waveform.get_waveform_slope_list()))
+                        else:
+                            # TODO: check "-point_list-" format: [ (t1, t2), (t3, t4), ... ]
+                            if len(values["-point_list-"]) > 0:
+                                point_list = []
+                                list_string = values["-point_list-"].replace('[','').replace(']','').replace('(','').replace(')','').split(",")
+                                t = 0
+                                while t < len(list_string):
+                                    print(float(list_string[t]), float(list_string[t+1]))
+                                    point_list.append((float(list_string[t]), float(list_string[t+1])))
+                                    t = t + 2
+                                slope_list_list.append(Waveform.get_waveform_slope(point_list))
+                            else:
+                                display_message_gui("incorrect time window list.\nList should be written as [(window 1 t1, window 1 t2), (window 2 t1, window 2 t2), ...], with times expressed in seconds after the stimulation, or as frame numbers (number of frame after the stimulation +0.05*sampling rate)")
+                                continue
+
 
                     tab_peaks = []
                     for peak_list in peaks_list_list:

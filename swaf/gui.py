@@ -55,7 +55,7 @@ def file_processing_gui(file_path):
         [sg.Text("New recording file (.smr):"), sg.In(size=(25, 1), enable_events=True, key="-new file-"), sg.FileBrowse()],
         [sg.HSeparator()],
         [sg.Text("Recording " + file_path)],
-        [sg.Text("  Recording length: " + str(Recording.t_stop) + " (at " + str(Recording.sampling_rate) + ")")],
+        [sg.Text("  Recording length: " + str(round(Recording.t_stop, 2)) + " (at " + str(round(Recording.sampling_rate, 3)) + ")")],
         [sg.Button("Average waveform analysis")],
         [rb],
         [sg.Text("time window (s):"), sg.Input(np.ceil(float(Recording.t_start)), key="-t_start-", size=(16,1)), sg.Input(np.floor(float(Recording.t_stop)), key="-t_stop-", size=(16,1))],
@@ -137,8 +137,8 @@ def waveform_processing_gui(Recording):
     column_layout = [[sg.T("waveform "+str(1)+" ->  t start: "), sg.InputText(key=("-t_start-", 0), size=(10,1)), sg.T("t stop:"), sg.InputText(key=("-t_stop-", 0), size=(10,1)), sg.Button("show plot", enable_events=True, key=("show_plot", 0)), sg.Button("+", enable_events=True, key="-add-")]]
 
     layout_display = [
-        [sg.Text("You can select multiple rows (using shit+click or ctrl+click) and copy them to clip board using Ctrl+c.\nSave button saves all the talbe.")],
-        [sg.Table([], headings=["peak time (s)", "peak value (V)"], enable_events=True, key="-results peaks-"), sg.Table([], headings=["window (frame)", "slope value (V)"], enable_events=True, key="-results slopes-")],
+        [sg.Text("You can select multiple rows (using shit+click or ctrl+click) and copy them to clip board using Ctrl+c.\nSave button saves all the table.")],
+        [sg.Table([], headings=["peak time (s)", "peak value (V)"], enable_events=True, key="-results peaks-"), sg.Table([], headings=["window (s)", "slope value (V)"], enable_events=True, key="-results slopes-")],
         [sg.HSeparator()],
         [sg.Input("output folder path", size=(20,1)), sg.FolderBrowse("save path"), sg.InputText("file name", key="-file name-", size=(10,1))],
         [sg.Button("Save as .csv")]
@@ -149,7 +149,7 @@ def waveform_processing_gui(Recording):
         [sg.Checkbox("Peaks", key="-peaks-"), sg.Button("options", enable_events=True, key="-options peaks-"), sg.Checkbox("Slopes", key="-slopes-"), sg.Button("options", enable_events=True, key="-options slopes-")],
         # TODO: check if inputs are correct (point_list sec->frame)
         [sg.Column([[sg.Text("peaks exclusion distance:"), sg.Input(30, size=(3, 1), key="-exclusion_dist-"), sg.Text("window size:"), sg.Input(2, size=(2, 1), key="-half_width-"), sg.Text("overlap:"),sg.Input(2, size=(2, 1), key="-overlap-"), sg.Checkbox("plot peaks", key="-peaks_plot-")]], key="-peaks option tab-", visible=False)],
-        [sg.Column([[sg.Text("slopes window list:"), sg.Input("[(t1, t2), (t3, t4)]", size=(16, 1), key="-point_list-")]], key="-slopes option tab-", visible=False)],
+        [sg.Column([[sg.Text("slopes window list:"), sg.Input("(t1, t2), (t3, t4)", size=(16, 1), key="-point_list-"), sg.Checkbox("plot slopes", key="-slopes_plot-")]], key="-slopes option tab-", visible=False)],
         [sg.Column(column_layout, key='-Column-'), sg.VSeparator(), sg.Column(layout_display, visible=False, key="-display results-")],
         [sg.Button("Go"), sg.Button("Reset"), sg.Button("Exit")]
     ]
@@ -199,8 +199,8 @@ def waveform_processing_gui(Recording):
                         peaks_list_list.append(peaks_list)
 
                     if values[("-slopes-")]:
-                        if values["-point_list-"] == "[(t1, t2), (t3, t4)]":
-                            slope_list_list.append(Waveform.get_waveform_slope(Waveform.get_waveform_slope_list()))
+                        if values["-point_list-"] == "(t1, t2), (t3, t4)":
+                            slope_list_list.append(Waveform.get_waveform_slope(Waveform.get_waveform_slope_list(), show_plot=values["-slopes_plot-"]))
                         else:
                             # TODO: check "-point_list-" format: [ (t1, t2), (t3, t4), ... ]
                             if len(values["-point_list-"]) > 0:
@@ -208,14 +208,12 @@ def waveform_processing_gui(Recording):
                                 list_string = values["-point_list-"].replace('[','').replace(']','').replace('(','').replace(')','').split(",")
                                 t = 0
                                 while t < len(list_string):
-                                    print(float(list_string[t]), float(list_string[t+1]))
                                     point_list.append((float(list_string[t]), float(list_string[t+1])))
                                     t = t + 2
-                                slope_list_list.append(Waveform.get_waveform_slope(point_list))
+                                slope_list_list.append(Waveform.get_waveform_slope(point_list, show_plot=values["-slopes_plot-"]))
                             else:
-                                display_message_gui("incorrect time window list.\nList should be written as [(window 1 t1, window 1 t2), (window 2 t1, window 2 t2), ...], with times expressed in seconds after the stimulation, or as frame numbers (number of frame after the stimulation +0.05*sampling rate)")
+                                display_message_gui("incorrect time window list.\nList should be written as (window 1 t1, window 1 t2), (window 2 t1, window 2 t2), ...,\nwith times expressed in seconds after the stimulation, or as frame numbers (number of frame after the stimulation +0.05s*sampling rate)")
                                 continue
-
 
                     tab_peaks = []
                     for peak_list in peaks_list_list:
@@ -293,7 +291,7 @@ def display_data_gui(Recording, t_start, t_stop, show, save, raw):
 
     if show:
         layout = [
-            [sg.Text("You can select multiple rows (using shit+click or ctrl+click) and copy them to clip board using Ctrl+c.\nSave button saves all the talbe.")],
+            [sg.Text("You can select multiple rows (using shit+click or ctrl+click) and copy them to clip board using Ctrl+c.\nSave button saves all the table.")],
             [sg.Table(data, headings=["time (s)", "V"], enable_events=True, key="-table-")],
             [sg.Input("output folder path"), sg.FolderBrowse("save path"), sg.InputText("file name", key="-file name-", size=(10,1))],
             [sg.Button("Save as .csv"), sg.Button("Exit")]

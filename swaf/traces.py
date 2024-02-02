@@ -20,16 +20,26 @@ class Spike_Recording:
         t_start, t_stop = get_t_start_t_stop(file_path, t_start, t_stop)
 
         reader = neo.io.Spike2IO(filename=file_path)
-        self.segment = reader.read_segment(time_slice=(t_start, t_stop))
-        self.t_start = self.segment.t_start
-        self.t_stop = self.segment.t_stop
+        self.segment = reader.read_segment(lazy=True)
+        self.signal_proxy = self.segment.analogsignals[2]
         self.sampling_rate = self.segment.analogsignals[2].sampling_rate
         # get stimulation trigger times
-        self.stim_trigger_times = np.array(self.segment.events[0])
-        # transpose the analog signal to get an array of shape [2, x], instead of [x, 2]
-        self.signal = np.transpose(self.segment.analogsignals[2])[1]
+        self.stim_trigger_times = np.array(self.segment.events[0].load(time_slice=(t_start, t_stop)))
+        # signal is not loaded (read_segment lazy option). contains whole data for this time window, not just the analog signal
+        self.loaded_sig = None
         self.click_coords = []
         self.key_shift = False
+
+    # ---------------- #
+    def get_signal(self, t_start, t_stop, return_sig=True):
+        """
+        TODO
+        """
+        self.loaded_sig = self.signal_proxy.load(time_slice=(t_start, t_stop))
+
+        if return_sig:
+            # transpose the analog signal to get an array of shape [2, x], instead of [x, 2]
+            return np.transpose(self.loaded_sig)[1]
 
     # ---------------- #
     def plot_analogsig(self, t_start, t_stop, plot_stim=True, show_plot=False, plot_save_path="", create_path=""):
@@ -38,15 +48,18 @@ class Spike_Recording:
         """
         # catch out of recording errors
         self.check_t(t_start, t_stop)
+        #  fetched signal (read_segment lazy option)
+        self.get_signal(t_start, t_stop, return_sig=False)
 
         fig = plt.subplot()
         # get array id corresponding to t_start and t_stop
-        id_start = int((t_start-float(self.segment.t_start)) * float(self.sampling_rate))
-        id_stop = int((t_stop-float(self.segment.t_start)) * float(self.sampling_rate))
+        id_start = int((t_start-float(self.loaded_sig.t_start)) * float(self.sampling_rate))
+        id_stop = int((t_stop-float(self.loaded_sig.t_start)) * float(self.sampling_rate))
 
-        plt.plot(self.segment.analogsignals[2].times[id_start:id_stop], self.signal[id_start:id_stop], color='k')
-        plt.xlabel(f"Time ({self.segment.analogsignals[2].times.units.dimensionality.string})")
-        plt.ylabel(f"{self.segment.analogsignals[2].units.dimensionality.string}")
+        # transpose the analog signal to get an array of shape [2, x], instead of [x, 2]
+        plt.plot(self.loaded_sig.times[id_start:id_stop], np.transpose(self.loaded_sig)[1][id_start:id_stop], color='k')
+        plt.xlabel(f"Time ({self.loaded_sig.times.units.dimensionality.string})")
+        plt.ylabel(f"{self.loaded_sig[2].units.dimensionality.string}")
         fig.spines['right'].set_visible(False)
         fig.spines['top'].set_visible(False)
         plt.tight_layout()
@@ -72,28 +85,23 @@ class Spike_Recording:
         """
         # catch out of recording errors
         self.check_t(t_start, t_stop)
-
-        # get stims idx between t_start and t_stop
-        stim_times_idx = np.where((self.stim_trigger_times > t_start) & (self.stim_trigger_times < t_stop))[0]
-        waveform_length = int(np.ceil(0.1*float(self.sampling_rate)))
-        waveforms = np.zeros(shape=(len(stim_times_idx), waveform_length))
+        # get the stim trigget time for the specified time window, and not for the whole rec segment
+        window_stim_trigger_times = np.array(self.segment.events[0].load(time_slice=(t_start, t_stop)))
+        waveform_length = int(np.floor(0.1*float(self.sampling_rate)))
+        waveforms = np.zeros(shape=(len(window_stim_trigger_times), waveform_length))
 
         # for each stim time between t_start and t_stop
-        for i in range(len(stim_times_idx)):
-            stim_time = self.stim_trigger_times[stim_times_idx[i]]
-            # get signal array's id corresponding to this stim time
-            signal_stim_id = (stim_time-float(self.segment.t_start)) * float(self.sampling_rate)
-            # get data +-0.05s arround that signal id stim time
-            data = self.signal[int(signal_stim_id-(0.05*float(self.sampling_rate))):int(signal_stim_id+(0.05*float(self.sampling_rate)))]
-            # size of segment can vary (from read_segment()), so add array's last value at the end of array if size < np.ceil(0.1*float(seg_sampling_rate)))-len(data)
+        for i in range(len(window_stim_trigger_times)):
+            # get data +-0.05s arround that signal stim time and transpose it
+            data =  np.transpose(self.signal_proxy.load(time_slice=(window_stim_trigger_times[i]-0.05, window_stim_trigger_times[i]+0.05)))[1]
+            # size of segment can vary (from neo load()), so add array's last value at the end of array if size < waveform_length
             if len(data) < waveform_length:
                 data = np.append(data, [data[len(data)-1] for addval in range(0, waveform_length-len(data))])
             waveforms[i] = data
 
-        waveforms = np.transpose(waveforms)
-        ave_waveform = np.average(waveforms, axis=1)
+        ave_waveform = np.average(waveforms, axis=0)
 
-        waveform_time = (np.asarray([range(int(-len(ave_waveform)/2), int(len(ave_waveform)/2))])/float(self.sampling_rate))[0]
+        waveform_time = (np.asarray([range(int(np.floor(-len(ave_waveform)/2)), int(np.floor(len(ave_waveform)/2)))])/float(self.sampling_rate))[0]
         Ave_Waveform = Waveform(ave_waveform, waveform_time, t_start, t_stop, self.sampling_rate)
 
         if show_plot or anotate or len(plot_save_path) > 0:

@@ -7,6 +7,7 @@ requirements = [
     "scipy",
     "neo",
     "PySimpleGUI",
+    "pyperclip",
 ]
 
 # Usage: pip install -e .[dev]

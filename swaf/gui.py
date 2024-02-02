@@ -55,10 +55,10 @@ def file_processing_gui(file_path):
         [sg.Text("New recording file (.smr):"), sg.In(size=(25, 1), enable_events=True, key="-new file-"), sg.FileBrowse()],
         [sg.HSeparator()],
         [sg.Text("Recording " + file_path)],
-        [sg.Text("  Recording length: " + str(round(Recording.t_stop, 2)) + " (at " + str(round(Recording.sampling_rate, 3)) + ")")],
+        [sg.Text("  Recording length: " + str(round(Recording.segment.t_stop, 2)) + " (at " + str(round(Recording.sampling_rate, 3)) + ")")],
         [sg.Button("Average waveform analysis")],
         [rb],
-        [sg.Text("time window (s):"), sg.Input(np.ceil(float(Recording.t_start)), key="-t_start-", size=(16,1)), sg.Input(np.floor(float(Recording.t_stop)), key="-t_stop-", size=(16,1))],
+        [sg.Text("time window (s):"), sg.Input(np.ceil(float(Recording.segment.t_start)), key="-t_start-", size=(16,1)), sg.Input(np.floor(float(Recording.segment.t_stop)), key="-t_stop-", size=(16,1))],
         [sg.Column(layout_raw, key="-layout raw-"), sg.Column(layout_ave, visible=False, key="-layout ave-")],
         [sg.Checkbox("save plot", enable_events=True, key="-save plot-"), sg.Input("plot saving path", visible=False, key="-plot save path input-"), sg.FolderBrowse("save path", visible=False, key="-plot save path-")],
         [sg.Checkbox("show data", key="-show data-"), sg.Checkbox("Save data (.csv)", key="-save data-")],
@@ -98,7 +98,7 @@ def file_processing_gui(file_path):
 
         if event == "Go":
             # check t_start t_stop
-            if not gui_check_t(float(Recording.t_stop), values["-t_start-"], values["-t_stop-"]):
+            if not gui_check_t(float(Recording.segment.t_stop), values["-t_start-"], values["-t_stop-"]):
                 continue
 
             if values["-show data-"] or values["-save data-"]:
@@ -180,7 +180,7 @@ def waveform_processing_gui(Recording):
 
         for try_i in range(i):
             if event == ("show_plot", try_i):
-                if gui_check_t(float(Recording.t_stop), values[("-t_start-", try_i)], values[("-t_stop-", try_i)]):
+                if gui_check_t(float(Recording.segment.t_stop), values[("-t_start-", try_i)], values[("-t_stop-", try_i)]):
                     Recording.get_ave_waveform(float(values[("-t_start-", try_i)]), float(values[("-t_stop-", try_i)]), show_plot=True, anotate=True)
                 continue
 
@@ -188,7 +188,7 @@ def waveform_processing_gui(Recording):
             peaks_list_list = []
             slope_list_list = []
             for waveform_i in range(i):
-                if not gui_check_t(float(Recording.t_stop), values[("-t_start-", waveform_i)], values[("-t_stop-", waveform_i)]):
+                if not gui_check_t(float(Recording.segment.t_stop), values[("-t_start-", waveform_i)], values[("-t_stop-", waveform_i)]):
                     continue
                 else:
                     Waveform = Recording.get_ave_waveform(float(values[("-t_start-", waveform_i)]), float(values[("-t_stop-", waveform_i)]))
@@ -258,10 +258,11 @@ def display_data_gui(Recording, t_start, t_stop, show, save, raw):
             display_message_gui("Aborting: too many data elements to display (from \'show data\' checkbox).\nPlease, define a smaller time window (< 2s for raw data) or consider saving data as a .csv file instead")
             return
 
-        id_start = int((t_start-float(Recording.segment.t_start)) * float(Recording.sampling_rate))
-        id_stop = int((t_stop-float(Recording.segment.t_start)) * float(Recording.sampling_rate))
-        x = [[str(float(t))] for t in Recording.segment.analogsignals[2].times[id_start:id_stop]]
-        y = [[str(float(v))] for v in Recording.signal[id_start:id_stop]]
+        Recording.get_signal(t_start, t_stop)
+        id_start = int((t_start-float(Recording.loaded_sig.t_start)) * float(Recording.sampling_rate))
+        id_stop = int((t_stop-float(Recording.loaded_sig.t_start)) * float(Recording.sampling_rate))
+        x = [[str(float(t))] for t in Recording.loaded_sig.times[id_start:id_stop]]
+        y = [[str(float(v))] for v in np.transpose(Recording.loaded_sig)[1][id_start:id_stop]]
 
     if not raw:
         Ave_Waveform = Recording.get_ave_waveform(t_start, t_stop)

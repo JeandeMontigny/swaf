@@ -1,4 +1,5 @@
 import swaf.traces as sw
+import swaf.gui as gui
 
 # ---------------------------------------------------------------- #
 file_path = "./recordings/290923/Data3.smr"
@@ -6,8 +7,11 @@ Recording = sw.read_file(file_path, t_start=300, t_stop=3400)
 
 Recording.plot_analogsig(300, 510, show_plot=True)
 
+signal = Recording.get_signal(2723, 2922)
+times = Recording.loaded_sig.times
+
 # Recording.get_ave_waveform(2723, 2922, plot_save_path="results/290923", create_path="y")
-Ave_Waveform = Recording.get_ave_waveform(307, 506, anotate=True)
+Ave_Waveform = Recording.get_ave_waveform(2723, 2922, anotate=True)
 
 # ---------------- #
 file_path = "./recordings/290923/Data3.smr"
@@ -32,3 +36,9 @@ Ave_Waveform.get_waveform_slope(print_val=True, show_plot=False)
 print("peaks times:", Ave_Waveform.peaks)
 print("peaks values:", Ave_Waveform.waveform[Ave_Waveform.peaks])
 print("slopes values:", Ave_Waveform.slope_val_list)
+
+# ---------------------------------------------------------------- #
+# launch the swaf gui
+gui.create_gui()
+# launch the swaf gui, directly opening the specified file
+# gui.file_processing_gui("./recordings/290923/Data3.smr")

@@ -26,8 +26,9 @@ Ave_Waveform.get_waveform_slope(point_list=slope_list, show_plot=True)
 file_path = "./recordings/111023/Data1.smr"
 Ave_Waveform = sw.get_ave_waveform_from_rec(file_path, 3575, 3773)
 peaks = Ave_Waveform.get_waveform_peaks(show_plot=True)
-sw.get_ave_waveform_from_rec("./recordings/290923/Data3.smr", 1220, 1419).get_waveform_peaks(exclusion_dist=10, lag=1, show_plot=True)
+sw.get_ave_waveform_from_rec("./recordings/290923/Data3.smr", 1220, 1419).get_waveform_peaks(show_plot=True)
 slope_list = Ave_Waveform.get_waveform_slope_list()
+print(slope_list)
 Ave_Waveform.get_waveform_slope(point_list=slope_list, show_plot=True)
 
 file_path = "./recordings/290923/Data3.smr"

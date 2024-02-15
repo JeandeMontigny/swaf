@@ -1,5 +1,6 @@
 import os, sys, inspect, neo
 import numpy as np
+import scipy.signal as sig
 import quantities as pq
 import matplotlib.pyplot as plt
 
@@ -141,7 +142,7 @@ class Waveform:
         self.key_shift = False
 
     # ---------------- #
-    def get_waveform_peaks(self, exclusion_dist=30, half_width=2, overlap=2, lag=2, show_plot=False, plot_save_path="", create_path=""):
+    def get_waveform_peaks(self, i_start=None, i_stop=None, height=None, threshold=None, exclusion_dist=30, prominence=0.01, width=None, show_plot=False, plot_save_path="", create_path=""):
         """
         TODO
         """
@@ -149,29 +150,35 @@ class Waveform:
             fig = plt.subplot()
             plt.plot(self.waveform, color='k')
 
-        peaks = []
-        i = int(len(self.waveform) / 2) + 30
-        direction = -1
-        # previous_peak_dist = exclusion_dist so we do not miss the first peak
-        previous_peak_dist = exclusion_dist
-        # no more interessing signal after ~800 frames of self.waveform
-        while i < 850:
-            diff = np.average(self.waveform[i+1:i+1+half_width]) - np.average(self.waveform[i-half_width:i])
-            # if signal variation direction is not the same as previously, thus if peak
-            if (diff < 0 and direction > 0) or (diff > 0 and direction < 0):
-                if previous_peak_dist >= exclusion_dist:
-                    if show_plot or len(plot_save_path) > 0:
-                        plt.plot(i-lag, self.waveform[i-lag], 'o', color='r' if direction > 0 else 'b')
-                    peaks.append(i-lag)
-                    previous_peak_dist = 0
-                    direction = direction * -1
+        if i_start == None:
+            i_start = int(len(self.waveform) / 2) + 15
+        if i_stop == None:
+            i_stop = int(len(self.waveform) / 2) + 350
 
-            i = i + (half_width*2)+1 - overlap
-            previous_peak_dist = previous_peak_dist + (half_width*2)+1 - overlap
+        # find positive peaks
+        p_peaks, p_peaks_dict = sig.find_peaks(self.waveform[i_start:i_stop], height=height, threshold=threshold, distance=exclusion_dist, prominence=prominence, width=width)
+        # find negative peaks
+        n_peaks, n_peaks_dict = sig.find_peaks(-self.waveform[i_start:i_stop], height=height, threshold=threshold, distance=exclusion_dist, prominence=prominence, width=width)
+
+        # add i_start to get correct position on whole sig
+        p_peaks = p_peaks+i_start
+        n_peaks = n_peaks+i_start
+
+        # if there is no negative peak before the first positive peak
+        if min(n_peaks) > min(p_peaks):
+            # add a negative peak point so we can calculate the first slope position
+            n_peaks = [i_start+15, *n_peaks]
+        # merge and sort negative and positive peaks in one array
+        peaks = np.sort([*p_peaks, *n_peaks])
 
         if show_plot or len(plot_save_path) > 0:
+            # plot peaks (positive in red, negative in blue) and slopes middle position (grey)
+            for i in range(len(p_peaks)):
+                plt.plot(p_peaks[i], self.waveform[p_peaks[i]], 'o', color='r')
+            for i in range(len(n_peaks)):
+                plt.plot(n_peaks[i], self.waveform[n_peaks[i]], 'o', color='b')
             for i in range(len(peaks)-1):
-                mean_i = int((peaks[i]+ peaks[i+1])/2)
+                mean_i = int((peaks[i] + peaks[i+1])/2)
                 plt.plot(mean_i, self.waveform[mean_i], 'o', color='grey')
 
             plt.xlabel("Frames")

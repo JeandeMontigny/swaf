@@ -165,7 +165,7 @@ class Waveform:
         n_peaks = n_peaks+i_start
 
         # if there is no negative peak before the first positive peak
-        if min(n_peaks) > min(p_peaks):
+        if len(n_peaks)==0 or min(n_peaks) > min(p_peaks):
             # add a negative peak point so we can calculate the first slope position
             n_peaks = [i_start+15, *n_peaks]
         # merge and sort negative and positive peaks in one array

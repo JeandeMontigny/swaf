@@ -148,7 +148,7 @@ def waveform_processing_gui(Recording):
         [sg.Text("Waveform features extraction:")],
         [sg.Checkbox("Peaks", key="-peaks-"), sg.Button("options", enable_events=True, key="-options peaks-"), sg.Checkbox("Slopes", key="-slopes-"), sg.Button("options", enable_events=True, key="-options slopes-")],
         # TODO: check if inputs are correct (point_list sec->frame)
-        [sg.Column([[sg.Text("peaks exclusion distance:"), sg.Input(30, size=(3, 1), key="-exclusion_dist-"), sg.Text("window size:"), sg.Input(2, size=(2, 1), key="-half_width-"), sg.Text("overlap:"),sg.Input(2, size=(2, 1), key="-overlap-"), sg.Checkbox("plot peaks", key="-peaks_plot-")]], key="-peaks option tab-", visible=False)],
+        [sg.Column([[sg.Text("i start:"), sg.Input(None, size=(4, 1), key="-i_start-"), sg.Text("i stop:"), sg.Input(None, size=(4, 1), key="-i_stop-"), sg.Text("peaks exclusion distance:"), sg.Input(30, size=(3, 1), key="-exclusion_dist-"), sg.Text("peak prominence:"), sg.Input(0.01, size=(4, 1), key="-prominence-"), sg.Text("peak width:"), sg.Input(None, size=(2, 1), key="-width-"), sg.Checkbox("plot peaks", key="-peaks_plot-")]], key="-peaks option tab-", visible=False)],
         [sg.Column([[sg.Text("slopes window list:"), sg.Input("(t1, t2), (t3, t4)", size=(16, 1), key="-point_list-"), sg.Checkbox("plot slopes", key="-slopes_plot-")]], key="-slopes option tab-", visible=False)],
         [sg.Column(column_layout, key='-Column-'), sg.VSeparator(), sg.Column(layout_display, visible=False, key="-display results-")],
         [sg.Button("Go"), sg.Button("Reset"), sg.Button("Exit")]
@@ -194,7 +194,7 @@ def waveform_processing_gui(Recording):
                     Waveform = Recording.get_ave_waveform(float(values[("-t_start-", waveform_i)]), float(values[("-t_stop-", waveform_i)]))
                     if values[("-peaks-")]:
                         peaks_list = []
-                        for peak_t in Waveform.get_waveform_peaks(int(values["-exclusion_dist-"]), int(values["-half_width-"]), int(values["-overlap-"]), show_plot=values["-peaks_plot-"]):
+                        for peak_t in Waveform.get_waveform_peaks(i_start=(None if values["-i_start-"]=='' else int(values["-i_start-"])), i_stop=(None if values["-i_stop-"]=='' else int(values["-i_stop-"])), exclusion_dist=int(values["-exclusion_dist-"]), prominence=float(values["-prominence-"]), width=(None if values["-width-"]=='' else int(values["-width-"])), show_plot=values["-peaks_plot-"]):
                             peaks_list.append([round((peak_t-(0.05*float(Waveform.sampling_rate)))/float(Waveform.sampling_rate), 5), round(Waveform.waveform[peak_t], 3)])
                         peaks_list_list.append(peaks_list)
 

@@ -6,7 +6,7 @@ requirements = [
     "numpy",
     "scipy",
     "neo",
-    "PySimpleGUI",
+    "PySimpleGUI==4.70.1",
     "pyperclip",
 ]
 
